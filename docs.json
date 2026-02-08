@@ -1,0 +1,57 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "maple",
+  "name": "Voidrun",
+  "description": "Sandboxed VM execution with REST, streaming, and WebSocket APIs.",
+  "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#0F3D3E"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Introduction",
+        "pages": ["mdx/index", "mdx/ways-to-use"]
+      },
+      {
+        "group": "Quickstart",
+        "pages": ["mdx/quickstart"]
+      },
+      {
+        "group": "SDKs",
+        "pages": ["mdx/sdk-overview", "mdx/sdk-typescript", "mdx/sdk-python"]
+      },
+      {
+        "group": "Core Concepts",
+        "pages": ["mdx/architecture", "mdx/concepts"]
+      },
+      {
+        "group": "Sandbox Management",
+        "pages": ["mdx/sandboxes", "mdx/images"]
+      },
+      {
+        "group": "Agent Tools",
+        "pages": [
+          "mdx/execution",
+          "mdx/background-commands",
+          "mdx/pty",
+          "mdx/files",
+          "mdx/fs-and-streaming",
+          "mdx/code-interpreter"
+        ]
+      },
+      {
+        "group": "Security and Accounts",
+        "pages": ["mdx/security", "mdx/authentication", "mdx/orgs-and-keys"]
+      },
+      {
+        "group": "Operations",
+        "pages": ["mdx/configuration", "mdx/cli", "mdx/deployments", "mdx/troubleshooting"]
+      },
+      {
+        "group": "Reference",
+        "pages": ["mdx/errors", "mdx/openapi-notes"]
+      }
+    ]
+  }
+}
