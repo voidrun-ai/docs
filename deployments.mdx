@@ -1,0 +1,51 @@
+---
+title: Deployments
+description: Run Voidrun in Docker Compose or locally on a Linux host.
+---
+
+## Requirements
+
+- Linux host with KVM support
+- cloud-hypervisor at /usr/local/bin/cloud-hypervisor
+- MongoDB
+- iptables and Linux bridge tooling
+
+## Docker Compose
+
+```bash
+cd /root/workspace/vr-work/voidrun
+
+docker compose up --build
+```
+
+API base URL: http://localhost:8080/api
+
+## Local deployment
+
+### 1) Configure sandbox networking
+
+```bash
+go run ./cmd/setup-net
+```
+
+### 2) Start MongoDB
+
+```bash
+docker run -d --name voidrun-mongo -p 27017:27017 \
+  -e MONGO_INITDB_ROOT_USERNAME=root \
+  -e MONGO_INITDB_ROOT_PASSWORD=Qaz123wsx123 \
+  -e MONGO_INITDB_DATABASE=vr-db \
+  mongo:7.0-alpine
+```
+
+### 3) Start the API server
+
+```bash
+go run ./cmd/server
+```
+
+Default address: :33944 (override with SERVER_PORT).
+
+## Configuration
+
+See Configuration for environment variables that control paths, networking, and defaults.

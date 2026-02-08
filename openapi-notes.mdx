@@ -1,0 +1,11 @@
+---
+title: OpenAPI Notes
+description: Differences between openapi.yml and the currently wired routes.
+---
+
+The repository includes openapi.yml, but the current router and handlers are not fully aligned with it. If you use the OpenAPI file, be aware of these differences:
+
+- The router does not expose sandbox restore, stop, pause, resume, snapshot, or snapshot list routes (they are commented out), but they appear in openapi.yml.
+- POST /api/sandboxes/{id}/session-exec and POST /api/sandboxes/{id}/session-exec-stream are wired in the router but are not listed in openapi.yml.
+- API key activation and touch endpoints are wired in the router but are not listed in openapi.yml.
+- POST /api/register returns HTTP 201 with a status/message/data envelope, while openapi.yml documents HTTP 200 with a different response shape.

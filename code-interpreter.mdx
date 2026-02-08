@@ -1,0 +1,58 @@
+---
+title: Code Interpreter
+description: Multi-language code execution via the TypeScript SDK.
+---
+
+The TypeScript SDK includes a code interpreter that runs language-specific snippets inside a sandbox. It is a convenience layer on top of the exec and file APIs.
+
+## When to use it
+
+- Running short code snippets without managing files
+- Executing multiple snippets in a single session
+- Switching languages without rebuilding sandboxes
+
+## Initialize
+
+```ts
+import { VoidRun } from "@voidrun/sdk";
+
+const vr = new VoidRun({});
+const sandbox = await vr.createSandbox({ mem: 1024, cpu: 1 });
+
+await sandbox.interpreter.initialize("python");
+```
+
+## Execute
+
+```ts
+const result = await sandbox.interpreter.execute("print(2 + 2)");
+if (result.success) {
+  console.log(result.output);
+}
+```
+
+## Multiple snippets
+
+```ts
+const results = await sandbox.interpreter.executeMultiple([
+  "x = 10",
+  "y = 20",
+  "print(x + y)",
+]);
+```
+
+## Switch languages
+
+```ts
+await sandbox.interpreter.reset("javascript");
+const jsResult = await sandbox.interpreter.execute("console.log(2 + 2)");
+```
+
+## Cleanup
+
+```ts
+await sandbox.interpreter.close();
+await sandbox.remove();
+```
+
+Supported languages depend on the SDK and sandbox image. Check the SDK README for the current list.

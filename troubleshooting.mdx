@@ -1,0 +1,25 @@
+---
+title: Troubleshooting
+description: Common setup and runtime issues.
+---
+
+## Server fails to start
+
+- Verify MongoDB connectivity and credentials
+- Confirm KVM support on the host
+- Ensure cloud-hypervisor is installed at /usr/local/bin/cloud-hypervisor
+
+## Sandbox networking issues
+
+- Run the setup-net helper and confirm the Linux bridge exists
+- Check iptables rules for NAT and forwarding
+- Verify BRIDGE_NAME, GATEWAY_IP, and NETWORK_CIDR values
+
+## Streaming not working
+
+- PTY and file watch require WebSocket upgrade support
+- Exec streams use SSE; ensure proxies do not buffer or block events
+
+## Inconsistent API behavior
+
+- Compare routed endpoints with OpenAPI Notes to avoid mismatches

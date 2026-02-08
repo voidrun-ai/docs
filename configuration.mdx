@@ -1,0 +1,33 @@
+---
+title: Configuration
+description: Environment variables that control server, storage, and sandbox defaults.
+---
+
+Voidrun reads configuration from environment variables. The values below are the defaults when not set.
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| SERVER_PORT | 33944 | Server port |
+| SERVER_HOST | empty | Bind host |
+| MONGO_URI | mongodb://root:Qaz123wsx123@localhost:27017/vr-db?authSource=admin | MongoDB URI |
+| MONGO_DB | vr-db | MongoDB database |
+| BASE_IMAGES_DIR | /var/lib/hyper-fleet/base-images | Base image storage |
+| INSTANCES_DIR | /var/lib/hyper-fleet/instances | Instance storage |
+| KERNEL_PATH | /var/lib/hyper-fleet/base-images/vmlinux | Kernel path |
+| BRIDGE_NAME | vmbr0 | Linux bridge name |
+| GATEWAY_IP | 192.168.100.1/22 | Bridge gateway IP/CIDR |
+| NETWORK_CIDR | 192.168.100.0/22 | Sandbox network |
+| SUBNET_PREFIX | 192.168.100. | Prefix for IP allocation |
+| TAP_PREFIX | ttap- | Tap device prefix |
+| SYSTEM_USER_NAME | System | Seed system user |
+| SYSTEM_USER_EMAIL | system@local | Seed system user email |
+| SANDBOX_DEFAULT_VCPUS | 1 | Default vCPUs |
+| SANDBOX_DEFAULT_MEMORY_MB | 1024 | Default memory (MiB) |
+| SANDBOX_DEFAULT_DISK_MB | 5120 | Default disk (MiB) |
+| SANDBOX_DEFAULT_IMAGE | debian | Default image name |
+| HEALTH_ENABLED | true | Periodic health checks |
+| HEALTH_INTERVAL_SEC | 60 | Health check interval |
+| HEALTH_CONCURRENCY | 16 | Health check concurrency |
+| API_KEY_CACHE_TTL_SECONDS | 3600 | API key cache TTL |
+
+Tip: keep SERVER_HOST empty to bind all interfaces in local setups.

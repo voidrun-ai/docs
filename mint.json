@@ -1,0 +1,52 @@
+{
+  "name": "Voidrun",
+  "favicon": "favicon.svg",
+  "colors": {
+    "primary": "#0F3D3E"
+  },
+  "navigation": [
+    {
+      "group": "Introduction",
+      "pages": ["index", "ways-to-use"]
+    },
+    {
+      "group": "Quickstart",
+      "pages": ["quickstart"]
+    },
+    {
+      "group": "SDKs",
+      "pages": ["sdk-overview", "sdk-typescript", "sdk-python"]
+    },
+    {
+      "group": "Core Concepts",
+      "pages": ["architecture", "concepts"]
+    },
+    {
+      "group": "Sandbox Management",
+      "pages": ["sandboxes", "images"]
+    },
+    {
+      "group": "Agent Tools",
+      "pages": [
+        "execution",
+        "background-commands",
+        "pty",
+        "files",
+        "fs-and-streaming",
+        "code-interpreter"
+      ]
+    },
+    {
+      "group": "Security and Accounts",
+      "pages": ["security", "authentication", "orgs-and-keys"]
+    },
+    {
+      "group": "Operations",
+      "pages": ["configuration", "cli", "deployments", "troubleshooting"]
+    },
+    {
+      "group": "Reference",
+      "pages": ["errors", "openapi-notes"]
+    }
+  ]
+}

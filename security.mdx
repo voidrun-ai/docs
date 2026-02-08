@@ -1,0 +1,24 @@
+---
+title: Security
+description: Authentication, isolation boundaries, and operational practices.
+---
+
+## Authentication
+
+All authenticated endpoints require X-API-Key. The register endpoint creates a user, an organization, and an API key.
+
+## Isolation model
+
+Voidrun runs each sandbox in a VM using cloud-hypervisor. Requests are routed to a sandbox agent over vsock. This provides a stronger boundary than process-level isolation.
+
+## Network and access
+
+- Sandbox networking is controlled via a Linux bridge and NAT on the host.
+- WebSocket endpoints accept API keys via query string for clients that cannot set headers.
+
+## Best practices
+
+- Rotate API keys regularly and revoke unused keys.
+- Restrict access to the API server and MongoDB with firewall rules.
+- Avoid embedding API keys in client-side code.
+- Use dedicated orgs or environments for production and testing.

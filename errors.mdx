@@ -1,0 +1,26 @@
+---
+title: Response Formats
+description: Standard success and error envelopes used by the API.
+---
+
+## Success response
+
+```json
+{
+  "status": "success",
+  "message": "...",
+  "data": {},
+  "meta": {}
+}
+```
+
+meta is present on paginated list endpoints.
+
+## Error response
+
+```json
+{
+  "error": "...",
+  "details": "..."
+}
+```

@@ -1,0 +1,39 @@
+---
+title: Voidrun
+description: Sandboxed VM execution with REST, streaming, and WebSocket APIs.
+---
+
+Voidrun is a Go API server that provisions sandboxed virtual machines and exposes a REST API for running commands, moving files, and managing PTY sessions. It persists state in MongoDB and communicates with each sandbox agent over vsock.
+
+## What you can do
+
+- Create and delete sandbox VMs on demand
+- Execute commands synchronously or stream output
+- Run background processes and attach to output later
+- Use ephemeral or persistent PTY sessions over WebSockets
+- Upload, download, search, and watch files inside sandboxes
+- Manage base images and organization API keys
+
+## Who it is for
+
+- Platform teams offering secure execution environments
+- Tooling and agent builders who need isolated runtimes
+- CI systems that need short-lived, disposable sandboxes
+
+## How it works (high level)
+
+1. The API server receives a request and stores metadata in MongoDB.
+2. A sandbox VM is booted via cloud-hypervisor and a sandbox agent connects over vsock.
+3. Commands, file operations, and PTY sessions are routed to the agent.
+4. Streaming endpoints use SSE or WebSockets for real-time output.
+
+## Capabilities at a glance
+
+- Lifecycle: create, list, inspect, delete
+- Execution: sync exec, SSE exec streams, session exec bridge
+- Background processes: run, list, attach, wait, kill
+- PTY: ephemeral terminals or persistent sessions
+- Files: upload/download, search, compress/extract, watch
+- Security: API key auth and org-scoped access
+
+Ready to try it? Start with the Quickstart.

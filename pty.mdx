@@ -1,0 +1,55 @@
+---
+title: PTY Sessions
+description: WebSocket terminal access and persistent PTY sessions.
+---
+
+All endpoints below require X-API-Key and are prefixed with /api.
+
+## Ephemeral PTY (WebSocket)
+
+`GET /api/sandboxes/{id}/pty`
+
+Connect via WebSocket. For clients that cannot set headers, append ?apiKey=... .
+
+## Create a PTY session
+
+`POST /api/sandboxes/{id}/pty/sessions`
+
+Response includes a sessionId and createdAt.
+
+## List PTY sessions
+
+`GET /api/sandboxes/{id}/pty/sessions`
+
+## Connect to a PTY session (WebSocket)
+
+`GET /api/sandboxes/{id}/pty/sessions/{sessionId}`
+
+## Delete a PTY session
+
+`DELETE /api/sandboxes/{id}/pty/sessions/{sessionId}`
+
+## Execute command in PTY session
+
+`POST /api/sandboxes/{id}/pty/sessions/{sessionId}/execute`
+
+```json
+{
+  "command": "top -b -n 1"
+}
+```
+
+## Get session output buffer
+
+`GET /api/sandboxes/{id}/pty/sessions/{sessionId}/buffer`
+
+## Resize terminal
+
+`POST /api/sandboxes/{id}/pty/sessions/{sessionId}/resize`
+
+```json
+{
+  "rows": 40,
+  "cols": 100
+}
+```

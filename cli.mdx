@@ -1,0 +1,27 @@
+---
+title: CLI Tools
+description: VM management commands and network setup helpers.
+---
+
+## VM CLI
+
+The voidrun CLI (in cmd/main.go) provides basic VM operations.
+
+```bash
+voidrun create --id <id> --image <image> --ip <ip>
+voidrun snapshot --id <id>
+voidrun restore --id <new-id> --source <snapshot-path> --ip <new-ip> [--cold]
+voidrun stop --id <id>
+```
+
+Defaults:
+
+- create: --image alpine, --ip 192.168.100.10
+
+## Network setup
+
+```bash
+go run ./cmd/setup-net
+```
+
+This configures a Linux bridge, NAT, and forwarding rules using values from Configuration.

@@ -1,0 +1,53 @@
+---
+title: Background Commands
+description: Run, list, kill, attach to, and wait for background processes.
+---
+
+All endpoints below require X-API-Key and are prefixed with /api.
+
+## Start background process
+
+`POST /api/sandboxes/{id}/commands/run`
+
+```json
+{
+  "command": "sleep 3600",
+  "env": {"DEBUG": "1"},
+  "cwd": "/root",
+  "timeout": 30
+}
+```
+
+## List background processes
+
+`GET /api/sandboxes/{id}/commands/list`
+
+## Kill a process
+
+`POST /api/sandboxes/{id}/commands/kill`
+
+```json
+{
+  "pid": 1234
+}
+```
+
+## Attach to process output (SSE)
+
+`POST /api/sandboxes/{id}/commands/attach`
+
+```json
+{
+  "pid": 1234
+}
+```
+
+## Wait for process completion
+
+`POST /api/sandboxes/{id}/commands/wait`
+
+```json
+{
+  "pid": 1234
+}
+```

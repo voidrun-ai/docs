@@ -1,0 +1,33 @@
+---
+title: Python SDK
+description: Current status and how to use the REST API from Python.
+---
+
+There is no official Python SDK in this repo yet. You can call the REST API directly from Python using your HTTP client of choice.
+
+## Example (requests)
+
+```python
+import requests
+
+base_url = "http://localhost:33944/api"
+api_key = "hf_your_key_here"
+
+sandbox = requests.post(
+    f"{base_url}/sandboxes",
+    headers={"X-API-Key": api_key},
+    json={"cpu": 1, "mem": 1024},
+).json()
+
+sandbox_id = sandbox["data"]["id"]
+
+result = requests.post(
+    f"{base_url}/sandboxes/{sandbox_id}/exec",
+    headers={"X-API-Key": api_key},
+    json={"command": "echo Hello"},
+).json()
+
+print(result["data"]["stdout"])
+```
+
+See the API Guide for full endpoint details.
