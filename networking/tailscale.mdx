@@ -1,0 +1,534 @@
+---
+title: Tailscale VPN
+description: Connect VoidRun sandboxes to your private network using native Tailscale integration for secure access to internal resources.
+---
+
+# Tailscale VPN
+
+VoidRun provides native Tailscale integration, allowing sandboxes to securely connect to your private tailnet. This enables AI agents and code execution environments to interact with internal APIs, databases, and services without exposing them to the public internet.
+
+<CardGroup cols={3}>
+  <Card title="🔒 Zero-Trust Security" icon="shield-lock">
+    WireGuard-based encryption with automatic key rotation.
+  </Card>
+  <Card title="🌐 Private Access" icon="network-wired">
+    Connect to internal APIs, databases, and services securely.
+  </Card>
+  <Card title="⚡ Simple Setup" icon="bolt">
+    Pre-installed in all VoidRun images. Just authenticate and connect.
+  </Card>
+</CardGroup>
+
+## Prerequisites
+
+Before connecting a sandbox to your tailnet, ensure you have:
+
+<Steps>
+  <Step title="Create a Tailscale Account">
+    Sign up at [tailscale.com](https://tailscale.com) if you don't have one.
+  </Step>
+  <Step title="Generate an Auth Key">
+    1. Go to the [Tailscale Admin Console](https://login.tailscale.com/admin/settings/keys)
+    2. Click "Generate auth key"
+    3. Configure key settings:
+       - **Description**: `voidrun-sandboxes`
+       - **Reusable**: Enable for multiple sandboxes
+       - **Ephemeral**: Enable (recommended) - nodes auto-remove after disconnect
+       - **Tags**: Optional - assign ACL tags for access control
+    4. Copy the auth key (starts with `tskey-auth-`)
+  </Step>
+  <Step title="Store Auth Key Securely">
+    Store your auth key in environment variables or a secrets manager. Never commit it to source control.
+  </Step>
+</Steps>
+
+<Warning>
+**Ephemeral nodes are strongly recommended** for VoidRun sandboxes. Without ephemeral mode, each sandbox creates a permanent node in your tailnet, which can clutter your network and reach node limits.
+</Warning>
+
+## Connecting to a Tailnet
+
+### Basic Connection
+
+Connect a sandbox to your tailnet using an auth key:
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+
+// Create a sandbox
+const sandbox = await vr.createSandbox({
+  name: 'tailscale-sandbox',
+  cpu: 2,
+  mem: 2048
+});
+
+// Connect to Tailscale using auth key
+const authKey = process.env.TAILSCALE_AUTH_KEY!;
+const result = await sandbox.exec({ 
+  command: `sudo tailscale up --authkey=${authKey} --hostname=voidrun-${sandbox.id.slice(0, 8)}` 
+});
+
+console.log('Tailscale status:', result.data?.stdout);
+
+// Verify connection
+const status = await sandbox.exec({ command: 'sudo tailscale status' });
+console.log(status.data?.stdout);
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+
+# Create a sandbox
+resp = vr.sandboxes.create(
+    name="tailscale-sandbox",
+    cpu=2,
+    mem=2048
+)
+sandbox = resp.data
+
+# Connect to Tailscale using auth key
+auth_key = os.environ.get("TAILSCALE_AUTH_KEY")
+result = sandbox.exec(f"sudo tailscale up --authkey={auth_key} --hostname=voidrun-{sandbox.id[:8]}")
+
+print("Tailscale status:", result.data.data.stdout)
+
+# Verify connection
+status = sandbox.exec("sudo tailscale status")
+print(status.data.data.stdout)
+```
+
+```bash CLI
+# Create a sandbox
+voidrun create --name tailscale-sandbox --cpu 2 --mem 2048
+
+# Connect to Tailscale
+voidrun exec <sandbox-id> --command "sudo tailscale up --authkey=$TAILSCALE_AUTH_KEY --hostname=voidrun-$(cat /dev/urandom | tr -dc 'a-z0-9' | head -c 8)"
+
+# Verify connection
+voidrun exec <sandbox-id> --command "sudo tailscale status"
+```
+
+```bash cURL
+# Create a sandbox
+curl -X POST "https://api.voidrun.com/v1/sandboxes" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "tailscale-sandbox", "cpu": 2, "mem": 2048}'
+
+# Connect to Tailscale
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "sudo tailscale up --authkey=$TAILSCALE_AUTH_KEY --hostname=voidrun-sandbox"}'
+```
+</CodeGroup>
+
+### Connection with Tags
+
+Use ACL tags for fine-grained access control:
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const sandbox = await vr.createSandbox({ cpu: 2, mem: 2048 });
+
+const authKey = process.env.TAILSCALE_AUTH_KEY!;
+
+// Connect with a tag for ACL control
+await sandbox.exec({ 
+  command: `sudo tailscale up --authkey=${authKey} --hostname=voidrun-agent --tag=tag:voidrun` 
+});
+
+// The tag allows you to control what this sandbox can access via Tailscale ACLs
+console.log('Connected with tag:voidrun');
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+resp = vr.sandboxes.create(cpu=2, mem=2048)
+sandbox = resp.data
+
+auth_key = os.environ.get("TAILSCALE_AUTH_KEY")
+
+# Connect with a tag for ACL control
+sandbox.exec(f"sudo tailscale up --authkey={auth_key} --hostname=voidrun-agent --tag=tag:voidrun")
+
+print("Connected with tag:voidrun")
+```
+
+```bash CLI
+# Connect with ACL tag
+voidrun exec <sandbox-id> --command "sudo tailscale up --authkey=$TAILSCALE_AUTH_KEY --hostname=voidrun-agent --tag=tag:voidrun"
+```
+
+```bash cURL
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "sudo tailscale up --authkey=$TAILSCALE_AUTH_KEY --hostname=voidrun-agent --tag=tag:voidrun"}'
+```
+</CodeGroup>
+
+## Interacting with Private Resources
+
+Once connected to your tailnet, the sandbox can access any resource available to your Tailscale network.
+
+### Access Internal APIs
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const sandbox = await vr.getSandbox('sandbox-id');
+
+// Connect to Tailscale first (see above)
+// ...
+
+// Access an internal API via Tailscale
+const result = await sandbox.exec({ 
+  command: 'curl -s http://internal-api.tailnet-name.tsvc:8080/health' 
+});
+
+console.log('Internal API response:', result.data?.stdout);
+
+// Access using Tailscale MagicDNS
+const dbResult = await sandbox.exec({ 
+  command: 'curl -s http://postgres.internal.ts.net:5432/status' 
+});
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+resp = vr.sandboxes.get("sandbox-id")
+sandbox = resp.data
+
+# Connect to Tailscale first (see above)
+# ...
+
+# Access an internal API via Tailscale
+result = sandbox.exec("curl -s http://internal-api.tailnet-name.tsvc:8080/health")
+print("Internal API response:", result.data.data.stdout)
+
+# Access using Tailscale MagicDNS
+db_result = sandbox.exec("curl -s http://postgres.internal.ts.net:5432/status")
+```
+
+```bash CLI
+# Access internal API via Tailscale
+voidrun exec <sandbox-id> --command "curl -s http://internal-api.tailnet-name.tsvc:8080/health"
+
+# Access using MagicDNS
+voidrun exec <sandbox-id> --command "curl -s http://postgres.internal.ts.net:5432/status"
+```
+
+```bash cURL
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "curl -s http://internal-api.tailnet-name.tsvc:8080/health"}'
+```
+</CodeGroup>
+
+### Connect to Databases
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const sandbox = await vr.getSandbox('sandbox-id');
+
+// Install PostgreSQL client
+await sandbox.exec({ command: 'sudo apt-get update && sudo apt-get install -y postgresql-client' });
+
+// Connect to internal PostgreSQL via Tailscale
+const query = await sandbox.exec({ 
+  command: 'PGPASSWORD=secret psql -h postgres.internal.ts.net -U app_user -d mydb -c "SELECT * FROM users LIMIT 5"' 
+});
+
+console.log('Query result:', query.data?.stdout);
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+resp = vr.sandboxes.get("sandbox-id")
+sandbox = resp.data
+
+# Install PostgreSQL client
+sandbox.exec("sudo apt-get update && sudo apt-get install -y postgresql-client")
+
+# Connect to internal PostgreSQL via Tailscale
+query = sandbox.exec('PGPASSWORD=secret psql -h postgres.internal.ts.net -U app_user -d mydb -c "SELECT * FROM users LIMIT 5"')
+
+print("Query result:", query.data.data.stdout)
+```
+
+```bash CLI
+# Install PostgreSQL client
+voidrun exec <sandbox-id> --command "sudo apt-get update && sudo apt-get install -y postgresql-client"
+
+# Connect to database via Tailscale
+voidrun exec <sandbox-id> --command 'PGPASSWORD=secret psql -h postgres.internal.ts.net -U app_user -d mydb -c "SELECT * FROM users LIMIT 5"'
+```
+
+```bash cURL
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "sudo apt-get update && sudo apt-get install -y postgresql-client"}'
+```
+</CodeGroup>
+
+### SSH to Internal Servers
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const sandbox = await vr.getSandbox('sandbox-id');
+
+// SSH to an internal server via Tailscale
+// Note: You'll need to set up SSH keys first
+await sandbox.exec({ 
+  command: 'ssh user@internal-server.tailnet-name.ts.net "uname -a"' 
+});
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+resp = vr.sandboxes.get("sandbox-id")
+sandbox = resp.data
+
+# SSH to an internal server via Tailscale
+sandbox.exec('ssh user@internal-server.tailnet-name.ts.net "uname -a"')
+```
+
+```bash CLI
+# SSH to internal server via Tailscale
+voidrun exec <sandbox-id> --command 'ssh user@internal-server.tailnet-name.ts.net "uname -a"'
+```
+
+```bash cURL
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "ssh user@internal-server.tailnet-name.ts.net \"uname -a\""}'
+```
+</CodeGroup>
+
+## Ephemeral Nodes
+
+<Note>
+**Ephemeral nodes are critical for VoidRun sandboxes.** Each sandbox creates a new node in your tailnet. Without ephemeral mode, these nodes persist forever, cluttering your network and potentially reaching Tailscale's node limits.
+</Note>
+
+### Creating Ephemeral Auth Keys
+
+When generating your auth key in the Tailscale Admin Console:
+
+1. Navigate to **Settings** → **Keys**
+2. Click **Generate auth key**
+3. **Enable "Ephemeral"** - This is essential!
+4. Optionally enable "Reusable" for multiple sandboxes
+
+### Ephemeral Node Behavior
+
+| Event | Behavior |
+|-------|----------|
+| Sandbox connects | New node appears in tailnet |
+| Sandbox disconnects | Node marked as offline |
+| After timeout (~1 hour) | Node automatically removed from tailnet |
+| Sandbox terminates | Node immediately removed |
+
+### Checking Node Status
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const sandbox = await vr.getSandbox('sandbox-id');
+
+// Check Tailscale connection status
+const status = await sandbox.exec({ command: 'sudo tailscale status --json' });
+console.log('Tailscale status:', JSON.parse(status.data?.stdout || '{}'));
+
+// Get current IP address
+const ip = await sandbox.exec({ command: 'sudo tailscale ip -4' });
+console.log('Tailscale IP:', ip.data?.stdout?.trim());
+```
+
+```python Python
+from voidrun import VoidRun
+import json
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+resp = vr.sandboxes.get("sandbox-id")
+sandbox = resp.data
+
+# Check Tailscale connection status
+status = sandbox.exec("sudo tailscale status --json")
+print("Tailscale status:", json.loads(status.data.data.stdout))
+
+# Get current IP address
+ip = sandbox.exec("sudo tailscale ip -4")
+print("Tailscale IP:", ip.data.data.stdout.strip())
+```
+
+```bash CLI
+# Check Tailscale status
+voidrun exec <sandbox-id> --command "sudo tailscale status"
+
+# Get Tailscale IP
+voidrun exec <sandbox-id> --command "sudo tailscale ip -4"
+```
+
+```bash cURL
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "sudo tailscale status"}'
+```
+</CodeGroup>
+
+## ACL Configuration
+
+Control what your VoidRun sandboxes can access using Tailscale ACLs. Create a tag-based access policy:
+
+### Example ACL Policy
+
+```json
+{
+  "tagOwners": {
+    "tag:voidrun": ["autogroup:admin"]
+  },
+  "acls": [
+    {
+      "action": "accept",
+      "src": ["tag:voidrun"],
+      "dst": [
+        "tag:api-server:*",
+        "tag:database:5432",
+        "group:dev:22"
+      ]
+    }
+  ]
+}
+```
+
+This policy allows sandboxes with `tag:voidrun` to:
+- Access all ports on servers tagged `api-server`
+- Access port 5432 (PostgreSQL) on servers tagged `database`
+- SSH (port 22) to the `dev` group
+
+## Disconnecting
+
+When a sandbox is terminated, its Tailscale node is automatically removed (for ephemeral nodes). To manually disconnect:
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const sandbox = await vr.getSandbox('sandbox-id');
+
+// Disconnect from Tailscale
+await sandbox.exec({ command: 'sudo tailscale down' });
+
+console.log('Disconnected from Tailscale');
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+resp = vr.sandboxes.get("sandbox-id")
+sandbox = resp.data
+
+# Disconnect from Tailscale
+sandbox.exec("sudo tailscale down")
+
+print("Disconnected from Tailscale")
+```
+
+```bash CLI
+# Disconnect from Tailscale
+voidrun exec <sandbox-id> --command "sudo tailscale down"
+```
+
+```bash cURL
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "sudo tailscale down"}'
+```
+</CodeGroup>
+
+## Troubleshooting
+
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| **"tailscale: command not found"** | Tailscale is pre-installed. Try `sudo tailscale` or check the image. |
+| **"not logged in"** | Run `tailscale up --authkey=...` to authenticate. |
+| **"connection refused"** | Verify the target service is running and accessible via Tailscale. |
+| **"ACL denied"** | Check your Tailscale ACL policy allows the connection. |
+| **Node not appearing** | Ensure the auth key is valid and not expired. |
+
+### Debug Commands
+
+<CodeGroup>
+```bash CLI
+# Check Tailscale service status
+voidrun exec <sandbox-id> --command "sudo systemctl status tailscaled"
+
+# View Tailscale logs
+voidrun exec <sandbox-id> --command "sudo journalctl -u tailscaled -n 50"
+
+# Ping another node
+voidrun exec <sandbox-id> --command "tailscale ping other-node.tailnet-name.ts.net"
+
+# Debug connectivity
+voidrun exec <sandbox-id> --command "tailscale status --verbose"
+```
+</CodeGroup>
+
+<Warning>
+**Security Note**: Auth keys provide access to your entire tailnet (limited by ACLs). Treat them like passwords. Rotate keys regularly and use tags to limit access scope.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="SSH & VNC Access" icon="terminal" href="/advanced/ssh-vnc">
+    Learn how to access sandboxes directly via SSH and VNC.
+  </Card>
+  <Card title="Nested Containers" icon="container-storage" href="/advanced/nested-containers">
+    Run Docker and Kubernetes inside your sandboxes.
+  </Card>
+</CardGroup>

@@ -1,0 +1,643 @@
+---
+title: Quickstart
+description: Get up and running with VoidRun in under 5 minutes.
+---
+
+# Quickstart Guide
+
+Get your first VoidRun sandbox up and running in minutes. This guide walks you through installation, authentication, and basic operations.
+
+## Prerequisites
+
+Before you begin, make sure you have:
+
+- A VoidRun API key (get one from your [VoidRun Dashboard](https://dashboard.voidrun.com))
+- Node.js 18+ or Python 3.9+ installed (for SDK usage)
+- `curl` installed (for REST API usage)
+
+## Step 1: Install the SDK
+
+Choose your preferred language:
+
+<CodeGroup>
+```bash TypeScript
+npm install @voidrun/sdk
+```
+
+```bash Python
+pip install voidrun
+```
+
+```bash CLI
+# Install the VoidRun CLI
+npm install -g @voidrun/cli
+
+# Or download directly
+curl -fsSL https://voidrun.com/install.sh | sh
+```
+
+```bash cURL
+# No installation needed - use curl directly
+# Ensure you have curl installed
+curl --version
+```
+</CodeGroup>
+
+## Step 2: Configure Authentication
+
+Set your API key as an environment variable:
+
+<CodeGroup>
+```bash TypeScript
+export VOIDRUN_API_KEY="your-api-key-here"
+```
+
+```bash Python
+export VR_API_KEY="your-api-key-here"
+# Alternatively: export API_KEY="your-api-key-here"
+```
+
+```bash CLI
+export VOIDRUN_API_KEY="your-api-key-here"
+```
+
+```bash cURL
+export VOIDRUN_API_KEY="your-api-key-here"
+```
+</CodeGroup>
+
+<Note>
+You can also pass the API key directly when initializing the SDK client. See the examples below.
+</Note>
+
+## Step 3: Create Your First Sandbox
+
+Create an isolated MicroVM environment:
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+// Initialize with environment variable
+const vr = new VoidRun({});
+
+// Or pass API key explicitly
+// const vr = new VoidRun({ apiKey: 'your-api-key' });
+
+// Create a sandbox
+const sandbox = await vr.createSandbox({
+  name: 'my-first-sandbox',
+  cpu: 2,
+  mem: 2048,
+  templateId: 'ubuntu:22.04'
+});
+
+console.log(`Sandbox created: ${sandbox.id}`);
+console.log(`Status: ${sandbox.status}`);
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+# Initialize with environment variable
+vr = VoidRun()
+
+# Or pass API key explicitly
+# vr = VoidRun(api_key="your-api-key")
+
+# Create a sandbox
+resp = vr.sandboxes.create(
+    name="my-first-sandbox",
+    cpu=2,
+    mem=2048,
+    template_id="ubuntu:22.04"
+)
+sandbox = resp.data
+
+print(f"Sandbox created: {sandbox.id}")
+print(f"Status: {sandbox.status}")
+```
+
+```bash CLI
+# Create a sandbox with default settings
+voidrun create --name my-first-sandbox
+
+# Create with custom configuration
+voidrun create \
+  --name my-first-sandbox \
+  --cpu 2 \
+  --mem 2048 \
+  --template ubuntu:22.04
+```
+
+```bash cURL
+curl -X POST https://api.voidrun.com/v1/sandboxes \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-first-sandbox",
+    "cpu": 2,
+    "mem": 2048,
+    "templateId": "ubuntu:22.04"
+  }'
+```
+</CodeGroup>
+
+## Step 4: Execute Commands
+
+Run commands inside your sandbox:
+
+<CodeGroup>
+```typescript TypeScript
+// Execute a simple command
+const result = await sandbox.exec({ 
+  command: 'echo "Hello from VoidRun!"' 
+});
+
+console.log(result.data?.stdout); // "Hello from VoidRun!"
+console.log(result.data?.exitCode); // 0
+
+// Execute with streaming output
+await sandbox.execStream(
+  { command: 'npm install && npm run build' },
+  {
+    onStdout: (data) => console.log('stdout:', data),
+    onStderr: (data) => console.error('stderr:', data),
+    onExit: ({ exitCode }) => console.log('Exited with code:', exitCode)
+  }
+);
+```
+
+```python Python
+# Execute a simple command
+result = sandbox.exec('echo "Hello from VoidRun!"')
+print(result.data.data.stdout)  # "Hello from VoidRun!"
+print(result.data.data.exit_code)  # 0
+
+# Execute with streaming output
+def on_stdout(data):
+    print(f"stdout: {data}")
+
+def on_stderr(data):
+    print(f"stderr: {data}")
+
+sandbox.exec_stream(
+    'pip install requests && python -c "import requests; print(requests.__version__)"',
+    on_stdout=on_stdout,
+    on_stderr=on_stderr
+)
+```
+
+```bash CLI
+# Execute a command
+voidrun exec <sandbox-id> --command 'echo "Hello from VoidRun!"'
+
+# Execute with streaming output
+voidrun exec <sandbox-id> --command 'npm install && npm run build' --stream
+```
+
+```bash cURL
+# Execute a command
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "echo \"Hello from VoidRun!\""}'
+
+# Stream command output (SSE endpoint)
+curl -N "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec-stream" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "npm install && npm run build"}'
+```
+</CodeGroup>
+
+## Step 5: Work with Files
+
+Upload, download, and manage files in your sandbox:
+
+<CodeGroup>
+```typescript TypeScript
+// Create and write to a file
+await sandbox.fs.createFile('/app/hello.txt');
+await sandbox.fs.uploadFile('/app/hello.txt', 'Hello, VoidRun!');
+
+// Read file contents
+const content = await sandbox.fs.downloadFile('/app/hello.txt');
+console.log(content.toString()); // "Hello, VoidRun!"
+
+// List files in a directory
+const files = await sandbox.fs.listFiles('/app');
+console.log(files.data);
+
+// Copy and move files
+await sandbox.fs.copyFile('/app/hello.txt', '/app/hello-copy.txt');
+await sandbox.fs.moveFile('/app/hello-copy.txt', '/tmp/hello.txt');
+
+// Delete a file
+await sandbox.fs.deleteFile('/tmp/hello.txt');
+```
+
+```python Python
+# Create and write to a file
+sandbox.fs.create_file("/app/hello.txt")
+sandbox.fs.upload_file("/app/hello.txt", "Hello, VoidRun!")
+
+# Read file contents
+content = sandbox.fs.download_file("/app/hello.txt")
+print(content.decode("utf-8"))  # "Hello, VoidRun!"
+
+# List files in a directory
+files = sandbox.fs.list_files("/app")
+print(files.data)
+
+# Copy and move files
+sandbox.fs.copy_file("/app/hello.txt", "/app/hello-copy.txt")
+sandbox.fs.move_file("/app/hello-copy.txt", "/tmp/hello.txt")
+
+# Delete a file
+sandbox.fs.delete_file("/tmp/hello.txt")
+```
+
+```bash CLI
+# Upload a file
+voidrun fs upload <sandbox-id> --source ./local-file.txt --dest /app/hello.txt
+
+# Download a file
+voidrun fs download <sandbox-id> --source /app/hello.txt --dest ./downloaded.txt
+
+# List files
+voidrun fs list <sandbox-id> --path /app
+
+# Delete a file
+voidrun fs delete <sandbox-id> --path /app/hello.txt
+```
+
+```bash cURL
+# Upload a file
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/upload" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -F "file=@./local-file.txt" \
+  -F "path=/app/hello.txt"
+
+# Download a file
+curl -X GET "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/download?path=/app/hello.txt" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -o downloaded.txt
+
+# List files
+curl -X GET "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/list?path=/app" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+```
+</CodeGroup>
+
+## Step 6: Run Code with the Interpreter
+
+Execute code in multiple languages using the built-in code interpreter:
+
+<CodeGroup>
+```typescript TypeScript
+// Run Python code
+const pyResult = await sandbox.runCode(`
+import math
+print(f"Pi is approximately {math.pi:.4f}")
+`, { language: 'python' });
+console.log(pyResult.stdout);
+
+// Run JavaScript code
+const jsResult = await sandbox.runCode(`
+const numbers = [1, 2, 3, 4, 5];
+const sum = numbers.reduce((a, b) => a + b, 0);
+console.log(\`Sum: \${sum}\`);
+`, { language: 'javascript' });
+console.log(jsResult.stdout);
+
+// Run Bash commands
+const bashResult = await sandbox.runCode(`
+for i in {1..5}; do
+  echo "Count: $i"
+done
+`, { language: 'bash' });
+console.log(bashResult.stdout);
+```
+
+```python Python
+# Run Python code
+result = sandbox.run_code("""
+import math
+print(f"Pi is approximately {math.pi:.4f}")
+""", language="python")
+print(result.data.stdout)
+
+# Run JavaScript code
+result = sandbox.run_code("""
+const numbers = [1, 2, 3, 4, 5];
+const sum = numbers.reduce((a, b) => a + b, 0);
+console.log(`Sum: ${sum}`);
+""", language="javascript")
+print(result.data.stdout)
+
+# Run Bash commands
+result = sandbox.run_code("""
+for i in {1..5}; do
+  echo "Count: $i"
+done
+""", language="bash")
+print(result.data.stdout)
+```
+
+```bash CLI
+# Run Python code
+voidrun run-code <sandbox-id> --language python --code 'print("Hello from Python!")'
+
+# Run JavaScript code
+voidrun run-code <sandbox-id> --language javascript --code 'console.log("Hello from JS!")'
+
+# Run from file
+voidrun run-code <sandbox-id> --language python --file ./script.py
+```
+
+```bash cURL
+# Run code via exec endpoint
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "command": "python3 -c \"print(\\\"Hello from Python!\\\")\""
+  }'
+```
+</CodeGroup>
+
+## Step 7: Manage Sandbox Lifecycle
+
+Control your sandbox state:
+
+<CodeGroup>
+```typescript TypeScript
+// List all sandboxes
+const { sandboxes, meta } = await vr.listSandboxes();
+console.log(`Total sandboxes: ${meta.total}`);
+
+// Get a specific sandbox
+const existing = await vr.getSandbox('sandbox-id');
+
+// Pause a running sandbox (saves resources)
+await sandbox.pause();
+
+// Resume a paused sandbox (< 200ms)
+await sandbox.resume();
+
+// Stop a sandbox
+await sandbox.stop();
+
+// Start a stopped sandbox
+await sandbox.start();
+
+// Delete a sandbox when done
+await sandbox.remove();
+```
+
+```python Python
+# List all sandboxes
+resp = vr.sandboxes.list()
+print(f"Total sandboxes: {len(resp.data)}")
+
+# Get a specific sandbox
+resp = vr.sandboxes.get("sandbox-id")
+existing = resp.data
+
+# Pause a running sandbox (saves resources)
+sandbox.pause()
+
+# Resume a paused sandbox (< 200ms)
+sandbox.resume()
+
+# Stop a sandbox
+sandbox.stop()
+
+# Start a stopped sandbox
+sandbox.start()
+
+# Delete a sandbox when done
+sandbox.delete()
+```
+
+```bash CLI
+# List all sandboxes
+voidrun list
+
+# Get sandbox details
+voidrun get <sandbox-id>
+
+# Pause a sandbox
+voidrun pause <sandbox-id>
+
+# Resume a sandbox
+voidrun resume <sandbox-id>
+
+# Stop a sandbox
+voidrun stop <sandbox-id>
+
+# Start a sandbox
+voidrun start <sandbox-id>
+
+# Delete a sandbox
+voidrun delete <sandbox-id>
+```
+
+```bash cURL
+# List all sandboxes
+curl -X GET "https://api.voidrun.com/v1/sandboxes" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+
+# Get sandbox details
+curl -X GET "https://api.voidrun.com/v1/sandboxes/<sandbox-id>" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+
+# Pause a sandbox
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/pause" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+
+# Resume a sandbox
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/resume" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+
+# Delete a sandbox
+curl -X DELETE "https://api.voidrun.com/v1/sandboxes/<sandbox-id>" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+```
+</CodeGroup>
+
+## Complete Example
+
+Here's a complete example that demonstrates the full workflow:
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+async function main() {
+  // Initialize client
+  const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+
+  // Create sandbox
+  const sandbox = await vr.createSandbox({
+    name: 'quickstart-demo',
+    cpu: 2,
+    mem: 2048,
+    templateId: 'ubuntu:22.04'
+  });
+
+  console.log(`Created sandbox: ${sandbox.id}`);
+
+  try {
+    // Upload a file
+    await sandbox.fs.uploadFile('/tmp/data.txt', 'Hello, VoidRun!');
+
+    // Execute a command
+    const result = await sandbox.exec({ command: 'cat /tmp/data.txt' });
+    console.log('File contents:', result.data?.stdout);
+
+    // Run Python code
+    const codeResult = await sandbox.runCode(`
+with open('/tmp/data.txt', 'r') as f:
+    content = f.read()
+    print(f"Read from file: {content}")
+`, { language: 'python' });
+    console.log('Python output:', codeResult.stdout);
+
+  } finally {
+    // Clean up
+    await sandbox.remove();
+    console.log('Sandbox deleted');
+  }
+}
+
+main().catch(console.error);
+```
+
+```python Python
+import os
+from voidrun import VoidRun
+
+def main():
+    # Initialize client
+    vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+
+    # Create sandbox
+    resp = vr.sandboxes.create(
+        name="quickstart-demo",
+        cpu=2,
+        mem=2048,
+        template_id="ubuntu:22.04"
+    )
+    sandbox = resp.data
+
+    print(f"Created sandbox: {sandbox.id}")
+
+    try:
+        # Upload a file
+        sandbox.fs.upload_file("/tmp/data.txt", "Hello, VoidRun!")
+
+        # Execute a command
+        result = sandbox.exec("cat /tmp/data.txt")
+        print("File contents:", result.data.data.stdout)
+
+        # Run Python code
+        code_result = sandbox.run_code("""
+with open('/tmp/data.txt', 'r') as f:
+    content = f.read()
+    print(f"Read from file: {content}")
+""", language="python")
+        print("Python output:", code_result.data.stdout)
+
+    finally:
+        # Clean up
+        sandbox.delete()
+        print("Sandbox deleted")
+
+if __name__ == "__main__":
+    main()
+```
+
+```bash CLI
+#!/bin/bash
+
+# Create sandbox
+SANDBOX_ID=$(voidrun create --name quickstart-demo --cpu 2 --mem 2048 --template ubuntu:22.04 --json | jq -r '.id')
+echo "Created sandbox: $SANDBOX_ID"
+
+# Upload a file
+echo "Hello, VoidRun!" | voidrun fs upload $SANDBOX_ID --dest /tmp/data.txt
+
+# Execute a command
+voidrun exec $SANDBOX_ID --command "cat /tmp/data.txt"
+
+# Run Python code
+voidrun run-code $SANDBOX_ID --language python --code "
+with open('/tmp/data.txt', 'r') as f:
+    content = f.read()
+    print(f'Read from file: {content}')
+"
+
+# Clean up
+voidrun delete $SANDBOX_ID
+echo "Sandbox deleted"
+```
+
+```bash cURL
+#!/bin/bash
+
+VOIDRUN_API_KEY="your-api-key"
+BASE_URL="https://api.voidrun.com/v1"
+
+# Create sandbox
+SANDBOX_ID=$(curl -s -X POST "$BASE_URL/sandboxes" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"quickstart-demo","cpu":2,"mem":2048}' | jq -r '.data.id')
+
+echo "Created sandbox: $SANDBOX_ID"
+
+# Upload a file
+curl -s -X POST "$BASE_URL/sandboxes/$SANDBOX_ID/fs/upload" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -F "file=@-;filename=data.txt" \
+  -F "path=/tmp/data.txt" <<< "Hello, VoidRun!"
+
+# Execute a command
+curl -s -X POST "$BASE_URL/sandboxes/$SANDBOX_ID/exec" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command":"cat /tmp/data.txt"}' | jq '.data.stdout'
+
+# Clean up
+curl -s -X DELETE "$BASE_URL/sandboxes/$SANDBOX_ID" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+
+echo "Sandbox deleted"
+```
+</CodeGroup>
+
+## What's Next?
+
+<Warning>
+Always clean up sandboxes when you're done to avoid unnecessary resource usage. Sandboxes auto-sleep after 5 minutes of idle time but remain available until explicitly deleted.
+</Warning>
+
+Now that you've completed the quickstart, explore these topics:
+
+<CardGroup cols={2}>
+  <Card title="Core Concepts" icon="lightbulb" href="/core-concepts/lifecycle">
+    Learn about sandbox lifecycle, auto-sleep, and resume behavior.
+  </Card>
+  <Card title="Code Execution" icon="terminal" href="/core-concepts/code-execution">
+    Deep dive into command execution and code interpreter features.
+  </Card>
+  <Card title="Custom Images" icon="container-storage" href="/environments/custom-images">
+    Create and use custom Docker images for your sandboxes.
+  </Card>
+  <Card title="Networking" icon="network-wired" href="/networking/internet-access">
+    Configure internet access and VPN connectivity.
+  </Card>
+</CardGroup>

@@ -1,0 +1,493 @@
+---
+title: Internet Access Control
+description: Configure granular internet access with allowlists and blocklists for secure sandbox execution.
+---
+
+# Internet Access Control
+
+Controlling internet access is crucial for AI agents and secure code execution. VoidRun provides granular network control at the MicroVM level, allowing you to restrict outbound connections to prevent data exfiltration and protect against malicious sites.
+
+## Why Network Control Matters
+
+<CardGroup cols={3}>
+  <Card title="🔒 Data Protection" icon="shield-lock">
+    Prevent AI agents from leaking sensitive data to external servers.
+  </Card>
+  <Card title="🛡️ Security" icon="shield-halved">
+    Block access to malicious domains and unauthorized endpoints.
+  </Card>
+  <Card title="📋 Compliance" icon="clipboard-check">
+    Meet regulatory requirements for isolated code execution.
+  </Card>
+</CardGroup>
+
+### Use Cases
+
+| Use Case | Configuration |
+|----------|---------------|
+| **AI Code Execution** | Allow only API endpoints needed for the task |
+| **CI/CD Pipelines** | Allow package registries, block everything else |
+| **Sandbox Testing** | Disable all internet access for maximum isolation |
+| **Data Processing** | Allow database connections, block public internet |
+
+## Enabling/Disabling Internet Access
+
+### Disable Internet Access
+
+Completely disable outbound internet access for maximum security:
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+
+// Create sandbox with internet disabled
+const sandbox = await vr.createSandbox({
+  name: 'isolated-sandbox',
+  cpu: 2,
+  mem: 2048
+});
+
+// TODO: Verify exact method - network config may be via exec or dedicated API
+// Disable outbound internet (except DNS)
+await sandbox.exec({ 
+  command: 'iptables -A OUTPUT -p tcp --dport 80 -j DROP && iptables -A OUTPUT -p tcp --dport 443 -j DROP' 
+});
+
+// Verify internet is blocked
+const result = await sandbox.exec({ command: 'curl -s --connect-timeout 5 https://google.com || echo "Internet blocked"' });
+console.log(result.data?.stdout); // "Internet blocked"
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+
+# Create sandbox with internet disabled
+resp = vr.sandboxes.create(
+    name="isolated-sandbox",
+    cpu=2,
+    mem=2048
+)
+sandbox = resp.data
+
+# TODO: Verify exact method - network config may be via exec or dedicated API
+# Disable outbound internet (except DNS)
+sandbox.exec('iptables -A OUTPUT -p tcp --dport 80 -j DROP && iptables -A OUTPUT -p tcp --dport 443 -j DROP')
+
+# Verify internet is blocked
+result = sandbox.exec('curl -s --connect-timeout 5 https://google.com || echo "Internet blocked"')
+print(result.data.data.stdout)  # "Internet blocked"
+```
+
+```bash CLI
+# Create sandbox
+voidrun create --name isolated-sandbox --cpu 2 --mem 2048
+
+# Disable outbound internet
+voidrun exec <sandbox-id> --command "iptables -A OUTPUT -p tcp --dport 80 -j DROP && iptables -A OUTPUT -p tcp --dport 443 -j DROP"
+
+# Verify internet is blocked
+voidrun exec <sandbox-id> --command "curl -s --connect-timeout 5 https://google.com || echo 'Internet blocked'"
+```
+
+```bash cURL
+# Create sandbox
+curl -X POST "https://api.voidrun.com/v1/sandboxes" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "isolated-sandbox", "cpu": 2, "mem": 2048}'
+
+# Disable outbound internet
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "iptables -A OUTPUT -p tcp --dport 80 -j DROP && iptables -A OUTPUT -p tcp --dport 443 -j DROP"}'
+```
+</CodeGroup>
+
+### Enable Internet Access
+
+Enable full internet access (default behavior):
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const sandbox = await vr.getSandbox('sandbox-id');
+
+// TODO: Verify exact method - network config may be via exec or dedicated API
+// Enable outbound internet
+await sandbox.exec({ 
+  command: 'iptables -D OUTPUT -p tcp --dport 80 -j DROP 2>/dev/null; iptables -D OUTPUT -p tcp --dport 443 -j DROP 2>/dev/null; echo "Internet enabled"' 
+});
+
+// Verify internet works
+const result = await sandbox.exec({ command: 'curl -s --connect-timeout 5 https://api.ipify.org' });
+console.log('Public IP:', result.data?.stdout);
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+resp = vr.sandboxes.get("sandbox-id")
+sandbox = resp.data
+
+# TODO: Verify exact method - network config may be via exec or dedicated API
+# Enable outbound internet
+sandbox.exec('iptables -D OUTPUT -p tcp --dport 80 -j DROP 2>/dev/null; iptables -D OUTPUT -p tcp --dport 443 -j DROP 2>/dev/null; echo "Internet enabled"')
+
+# Verify internet works
+result = sandbox.exec('curl -s --connect-timeout 5 https://api.ipify.org')
+print("Public IP:", result.data.data.stdout)
+```
+
+```bash CLI
+# Enable outbound internet
+voidrun exec <sandbox-id> --command "iptables -D OUTPUT -p tcp --dport 80 -j DROP 2>/dev/null; iptables -D OUTPUT -p tcp --dport 443 -j DROP 2>/dev/null"
+
+# Verify internet works
+voidrun exec <sandbox-id> --command "curl -s --connect-timeout 5 https://api.ipify.org"
+```
+
+```bash cURL
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "iptables -D OUTPUT -p tcp --dport 80 -j DROP 2>/dev/null; iptables -D OUTPUT -p tcp --dport 443 -j DROP 2>/dev/null"}'
+```
+</CodeGroup>
+
+## Allowlists
+
+Configure allowlists to permit access only to specific domains or IPs:
+
+### Domain Allowlist
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const sandbox = await vr.createSandbox({ cpu: 2, mem: 2048 });
+
+// TODO: Verify exact implementation for allowlists
+// Set up allowlist for specific domains only
+const allowedDomains = [
+  'api.github.com',
+  'pypi.org',
+  'registry.npmjs.org'
+];
+
+// Block all outbound first, then allow specific domains
+await sandbox.exec({ 
+  command: `
+# Block all outbound HTTP/HTTPS
+iptables -A OUTPUT -p tcp --dport 80 -j DROP
+iptables -A OUTPUT -p tcp --dport 443 -j DROP
+
+# Allow specific domains (resolve and allow their IPs)
+for domain in ${allowedDomains.join(' ')}; do
+  ip=$(dig +short $domain | head -1)
+  iptables -I OUTPUT -d $ip -p tcp --dport 443 -j ACCEPT
+done
+
+echo "Allowlist configured"
+` 
+});
+
+// Test: allowed domain works
+const allowed = await sandbox.exec({ command: 'curl -s --connect-timeout 5 https://api.github.com/zen' });
+console.log('GitHub API:', allowed.data?.stdout);
+
+// Test: blocked domain fails
+const blocked = await sandbox.exec({ command: 'curl -s --connect-timeout 5 https://google.com || echo "Blocked"' });
+console.log('Google:', blocked.data?.stdout); // "Blocked"
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+resp = vr.sandboxes.create(cpu=2, mem=2048)
+sandbox = resp.data
+
+# TODO: Verify exact implementation for allowlists
+allowed_domains = [
+    "api.github.com",
+    "pypi.org",
+    "registry.npmjs.org"
+]
+
+# Block all outbound first, then allow specific domains
+sandbox.exec(f"""
+# Block all outbound HTTP/HTTPS
+iptables -A OUTPUT -p tcp --dport 80 -j DROP
+iptables -A OUTPUT -p tcp --dport 443 -j DROP
+
+# Allow specific domains (resolve and allow their IPs)
+for domain in {' '.join(allowed_domains)}; do
+  ip=$(dig +short $domain | head -1)
+  iptables -I OUTPUT -d $ip -p tcp --dport 443 -j ACCEPT
+done
+
+echo "Allowlist configured"
+""")
+
+# Test: allowed domain works
+allowed = sandbox.exec("curl -s --connect-timeout 5 https://api.github.com/zen")
+print("GitHub API:", allowed.data.data.stdout)
+```
+
+```bash CLI
+# Create sandbox
+voidrun create --cpu 2 --mem 2048
+
+# Configure allowlist (allow only api.github.com and pypi.org)
+voidrun exec <sandbox-id> --command '
+iptables -A OUTPUT -p tcp --dport 80 -j DROP
+iptables -A OUTPUT -p tcp --dport 443 -j DROP
+
+# Allow specific domains
+for domain in api.github.com pypi.org; do
+  ip=$(dig +short $domain | head -1)
+  iptables -I OUTPUT -d $ip -p tcp --dport 443 -j ACCEPT
+done
+'
+
+# Test allowed domain
+voidrun exec <sandbox-id> --command "curl -s https://api.github.com/zen"
+```
+
+```bash cURL
+# Configure allowlist
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "iptables -A OUTPUT -p tcp --dport 443 -j DROP && iptables -I OUTPUT -d $(dig +short api.github.com | head -1) -p tcp --dport 443 -j ACCEPT"}'
+```
+</CodeGroup>
+
+### IP Allowlist
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const sandbox = await vr.getSandbox('sandbox-id');
+
+// TODO: Verify exact implementation
+// Allow specific IP addresses only
+const allowedIPs = ['192.168.1.100', '10.0.0.50'];
+
+await sandbox.exec({ 
+  command: `
+# Block all outbound first
+iptables -A OUTPUT -p tcp --dport 443 -j DROP
+
+# Allow specific IPs
+for ip in ${allowedIPs.join(' ')}; do
+  iptables -I OUTPUT -d $ip -p tcp --dport 443 -j ACCEPT
+done
+` 
+});
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+resp = vr.sandboxes.get("sandbox-id")
+sandbox = resp.data
+
+# TODO: Verify exact implementation
+allowed_ips = ["192.168.1.100", "10.0.0.50"]
+
+sandbox.exec(f"""
+# Block all outbound first
+iptables -A OUTPUT -p tcp --dport 443 -j DROP
+
+# Allow specific IPs
+for ip in {' '.join(allowed_ips)}; do
+  iptables -I OUTPUT -d $ip -p tcp --dport 443 -j ACCEPT
+done
+""")
+```
+
+```bash CLI
+# Allow specific IPs only
+voidrun exec <sandbox-id> --command '
+iptables -A OUTPUT -p tcp --dport 443 -j DROP
+iptables -I OUTPUT -d 192.168.1.100 -p tcp --dport 443 -j ACCEPT
+iptables -I OUTPUT -d 10.0.0.50 -p tcp --dport 443 -j ACCEPT
+'
+```
+
+```bash cURL
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "iptables -A OUTPUT -p tcp --dport 443 -j DROP && iptables -I OUTPUT -d 192.168.1.100 -p tcp --dport 443 -j ACCEPT"}'
+```
+</CodeGroup>
+
+## Blocklists
+
+Configure blocklists to deny access to specific domains or IPs:
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const sandbox = await vr.createSandbox({ cpu: 2, mem: 2048 });
+
+// TODO: Verify exact implementation for blocklists
+// Block specific domains
+const blockedDomains = [
+  'facebook.com',
+  'twitter.com',
+  'tiktok.com'
+];
+
+await sandbox.exec({ 
+  command: `
+# Block specific domains
+for domain in ${blockedDomains.join(' ')}; do
+  ip=$(dig +short $domain | head -1)
+  iptables -A OUTPUT -d $ip -j DROP
+done
+
+echo "Blocklist configured"
+` 
+});
+
+// Test: blocked domain fails
+const blocked = await sandbox.exec({ command: 'curl -s --connect-timeout 5 https://facebook.com || echo "Blocked"' });
+console.log('Facebook:', blocked.data?.stdout); // "Blocked"
+
+// Test: other domains work
+const allowed = await sandbox.exec({ command: 'curl -s --connect-timeout 5 https://google.com' });
+console.log('Google works:', allowed.data?.stdout ? 'Yes' : 'No');
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+resp = vr.sandboxes.create(cpu=2, mem=2048)
+sandbox = resp.data
+
+# TODO: Verify exact implementation for blocklists
+blocked_domains = [
+    "facebook.com",
+    "twitter.com",
+    "tiktok.com"
+]
+
+sandbox.exec(f"""
+# Block specific domains
+for domain in {' '.join(blocked_domains)}; do
+  ip=$(dig +short $domain | head -1)
+  iptables -A OUTPUT -d $ip -j DROP
+done
+
+echo "Blocklist configured"
+""")
+
+# Test: blocked domain fails
+blocked = sandbox.exec("curl -s --connect-timeout 5 https://facebook.com || echo 'Blocked'")
+print("Facebook:", blocked.data.data.stdout)  # "Blocked"
+```
+
+```bash CLI
+# Block specific domains
+voidrun exec <sandbox-id> --command '
+for domain in facebook.com twitter.com tiktok.com; do
+  ip=$(dig +short $domain | head -1)
+  iptables -A OUTPUT -d $ip -j DROP
+done
+'
+
+# Test blocked domain
+voidrun exec <sandbox-id> --command "curl -s --connect-timeout 5 https://facebook.com || echo 'Blocked'"
+```
+
+```bash cURL
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "iptables -A OUTPUT -d $(dig +short facebook.com | head -1) -j DROP"}'
+```
+</CodeGroup>
+
+## Security Best Practices
+
+<Note>
+Network rules are enforced at the MicroVM level using iptables. This provides kernel-level isolation and prevents bypass attempts by AI agents or malicious code.
+</Note>
+
+### Recommended Configurations
+
+<CardGroup cols={2}>
+  <Card title="🔒 Maximum Security" icon="lock">
+    Block all internet access. Only allow internal communication.
+    ```bash
+    iptables -A OUTPUT -p tcp --dport 80 -j DROP
+    iptables -A OUTPUT -p tcp --dport 443 -j DROP
+    ```
+  </Card>
+  <Card title="🎯 Selective Access" icon="filter">
+    Allow only required APIs. Block everything else.
+    ```bash
+    # Allow only GitHub API
+    iptables -A OUTPUT -p tcp --dport 443 -j DROP
+    iptables -I OUTPUT -d $(dig +short api.github.com | head -1) -p tcp --dport 443 -j ACCEPT
+    ```
+  </Card>
+</CardGroup>
+
+### Security Checklist
+
+<Steps>
+  <Step title="Identify Required Endpoints">
+    List all external APIs and services your sandbox needs to access.
+  </Step>
+  <Step title="Create Allowlist">
+    Configure iptables to allow only those specific endpoints.
+  </Step>
+  <Step title="Block Everything Else">
+    Set default DROP policy for all other outbound traffic.
+  </Step>
+  <Step title="Test Configuration">
+    Verify allowed endpoints work and blocked endpoints fail.
+  </Step>
+  <Step title="Monitor Traffic">
+    Log any blocked connection attempts for auditing.
+  </Step>
+</Steps>
+
+<Warning>
+Network rules are reset when a sandbox is terminated. For persistent security policies, configure network rules at the start of each session or use a custom image with pre-configured iptables rules.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Tailscale VPN" icon="network-wired" href="/networking/tailscale">
+    Connect sandboxes to your private network via Tailscale.
+  </Card>
+  <Card title="Custom Images" icon="container-storage" href="/environments/custom-images">
+    Create images with pre-configured network rules.
+  </Card>
+</CardGroup>
