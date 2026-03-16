@@ -1,0 +1,418 @@
+---
+title: Custom Images
+description: Use custom Docker images with VoidRun while maintaining fast resume times and MicroVM isolation.
+---
+
+# Custom Images
+
+VoidRun supports custom Docker images, allowing you to pre-configure environments with your specific dependencies, tools, and configurations. All while maintaining the signature **under 200ms resume time** and **MicroVM isolation**.
+
+## How Custom Images Work
+
+VoidRun uses a template system that maps to pre-built root filesystems. When you create a sandbox with a custom image, VoidRun:
+
+1. **Pulls the image** (if not cached)
+2. **Creates an isolated MicroVM** with the image's root filesystem
+3. **Maintains the same performance characteristics** as standard images
+
+<CardGroup cols={3}>
+  <Card title="🚀 Fast Resume" icon="bolt">
+    Custom images maintain the same under 200ms resume time as standard images.
+  </Card>
+  <Card title="🔒 Full Isolation" icon="shield-lock">
+    Each sandbox runs in its own MicroVM, regardless of the base image.
+  </Card>
+  <Card title="📦 Docker Compatible" icon="container-storage">
+    Use images from Docker Hub or private registries.
+  </Card>
+</CardGroup>
+
+## Available Templates
+
+VoidRun provides several built-in templates:
+
+| Template ID | Description | Use Case |
+|-------------|-------------|----------|
+| `debian` | Debian-based Linux (default) | General purpose, AI/ML workloads |
+| `ubuntu` | Ubuntu-based Linux | Development, CI/CD |
+| `node` | Node.js pre-installed | JavaScript/TypeScript applications |
+| `python` | Python pre-installed | Data science, AI agents |
+
+<Note>
+The default template is `debian`. If you don't specify a `templateId`, the sandbox will use the Debian-based image.
+</Note>
+
+## Using a Custom Image
+
+### Specify Template at Creation
+
+Pass the `templateId` parameter when creating a sandbox:
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+
+// Create sandbox with Node.js template
+const sandbox = await vr.createSandbox({
+  name: 'node-app',
+  templateId: 'node',  // Use Node.js image
+  cpu: 2,
+  mem: 2048
+});
+
+console.log('Sandbox ID:', sandbox.id);
+console.log('Template:', sandbox.templateId);
+
+// Node.js is ready to use
+const result = await sandbox.exec({ command: 'node --version' });
+console.log('Node version:', result.data?.stdout);
+
+await sandbox.remove();
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+
+# Create sandbox with Node.js template
+resp = vr.sandboxes.create(
+    name="node-app",
+    template_id="node",  # Use Node.js image
+    cpu=2,
+    mem=2048
+)
+sandbox = resp.data
+
+print("Sandbox ID:", sandbox.id)
+
+# Node.js is ready to use
+result = sandbox.exec("node --version")
+print("Node version:", result.data.data.stdout)
+
+sandbox.delete()
+```
+
+```bash CLI
+# Create sandbox with custom template
+voidrun create --name node-app --template node --cpu 2 --mem 2048
+
+# Verify Node.js is available
+voidrun exec <sandbox-id> --command "node --version"
+```
+
+```bash cURL
+# Create sandbox with custom template
+curl -X POST "https://api.voidrun.com/v1/sandboxes" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "node-app",
+    "templateId": "node",
+    "cpu": 2,
+    "mem": 2048
+  }'
+```
+</CodeGroup>
+
+### Python Template
+
+Create a sandbox with Python pre-installed:
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+
+// Create sandbox with Python template
+const sandbox = await vr.createSandbox({
+  name: 'python-app',
+  templateId: 'python',
+  cpu: 2,
+  mem: 4096
+});
+
+// Python is ready to use
+const result = await sandbox.exec({ command: 'python3 --version' });
+console.log('Python version:', result.data?.stdout);
+
+// Run Python code immediately
+const codeResult = await sandbox.runCode(`
+import sys
+print(f"Python {sys.version}")
+`, { language: 'python' });
+
+console.log(codeResult.stdout);
+
+await sandbox.remove();
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+
+# Create sandbox with Python template
+resp = vr.sandboxes.create(
+    name="python-app",
+    template_id="python",
+    cpu=2,
+    mem=4096
+)
+sandbox = resp.data
+
+# Python is ready to use
+result = sandbox.exec("python3 --version")
+print("Python version:", result.data.data.stdout)
+
+# Run Python code immediately
+code_result = sandbox.run_code("""
+import sys
+print(f"Python {sys.version}")
+""", language="python")
+
+print(code_result.data.stdout)
+
+sandbox.delete()
+```
+
+```bash CLI
+# Create Python sandbox
+voidrun create --name python-app --template python --cpu 2 --mem 4096
+
+# Verify Python
+voidrun exec <sandbox-id> --command "python3 --version"
+```
+
+```bash cURL
+curl -X POST "https://api.voidrun.com/v1/sandboxes" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "python-app",
+    "templateId": "python",
+    "cpu": 2,
+    "mem": 4096
+  }'
+```
+</CodeGroup>
+
+## Creating Custom Images
+
+For advanced use cases, you can register custom images with the Images API:
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+
+// Register a custom image
+// Note: This requires the image to be available on the VoidRun server
+// TODO: Verify exact API method for custom image registration
+const imagesApi = vr.images; // Access to ImagesApi
+
+// Create image record
+await imagesApi.createImage({
+  createImageRequest: {
+    name: 'my-custom-image',
+    version: '1.0.0',
+    path: '/path/to/rootfs'
+  }
+});
+
+// Then use it when creating a sandbox
+const sandbox = await vr.createSandbox({
+  name: 'custom-app',
+  templateId: 'my-custom-image',
+  cpu: 2,
+  mem: 2048
+});
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+
+# Register a custom image
+# TODO: Verify exact API method for custom image registration
+# The ImagesApi is available via the API client
+
+# Create sandbox with custom template
+resp = vr.sandboxes.create(
+    name="custom-app",
+    template_id="my-custom-image",  # Your registered image
+    cpu=2,
+    mem=2048
+)
+sandbox = resp.data
+```
+
+```bash CLI
+# Register custom image (via API)
+# TODO: Verify CLI command for custom image registration
+
+# Use custom template
+voidrun create --template my-custom-image --name custom-app
+```
+
+```bash cURL
+# Create image record
+curl -X POST "https://api.voidrun.com/v1/images" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-custom-image",
+    "version": "1.0.0",
+    "path": "/path/to/rootfs"
+  }'
+
+# Use custom template
+curl -X POST "https://api.voidrun.com/v1/sandboxes" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "custom-app",
+    "templateId": "my-custom-image"
+  }'
+```
+</CodeGroup>
+
+## Image Caching & Performance
+
+<Note>
+VoidRun caches images on the host server. The first sandbox creation with a new image may take longer as the image is pulled and prepared. Subsequent sandboxes using the same image will be fast.
+</Note>
+
+### How Caching Works
+
+1. **First Use**: Image is pulled and cached on the host (may take 10-60 seconds)
+2. **Subsequent Uses**: Image is served from cache (fast creation)
+3. **Auto-Sleep Interaction**: Sleeping sandboxes retain their image; resume is always under 200ms
+
+### Performance Characteristics
+
+| Operation | First Use | Cached |
+|-----------|-----------|--------|
+| Create Sandbox | 10-60s | 2-5s |
+| Resume from Sleep | N/A | under 200ms |
+| Execute Command | Instant | Instant |
+
+<Warning>
+Custom images are cached per-region. If you're using multiple regions, the first sandbox in each region will experience the longer "first use" creation time.
+</Warning>
+
+## Best Practices
+
+### Choose the Right Base Image
+
+<CardGroup cols={2}>
+  <Card title="✅ Do" icon="check">
+    - Use `python` template for Python workloads
+    - Use `node` template for JavaScript/TypeScript
+    - Start with `debian` for maximum compatibility
+  </Card>
+  <Card title="❌ Don't" icon="x">
+    - Install heavy packages on every sandbox creation
+    - Use oversized images when a minimal one works
+    - Re-create sandboxes unnecessarily
+  </Card>
+</CardGroup>
+
+### Image Selection Guide
+
+| Use Case | Recommended Template | Why |
+|----------|---------------------|-----|
+| AI/ML Development | `python` | Python pre-installed, pip ready |
+| Web Services | `node` | Node.js runtime ready |
+| General Scripts | `debian` | Minimal, flexible |
+| CI/CD Pipelines | `debian` or `ubuntu` | Full Linux environment |
+
+### Environment Variables
+
+Set environment variables when creating sandboxes with custom images:
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+
+const sandbox = await vr.createSandbox({
+  name: 'configured-app',
+  templateId: 'python',
+  cpu: 2,
+  mem: 2048,
+  envVars: {
+    NODE_ENV: 'production',
+    DATABASE_URL: 'postgres://localhost:5432/mydb',
+    API_KEY: 'secret-key-123'
+  }
+});
+
+// Environment variables are available
+const result = await sandbox.exec({ command: 'echo $DATABASE_URL' });
+console.log(result.data?.stdout);
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+
+resp = vr.sandboxes.create(
+    name="configured-app",
+    template_id="python",
+    cpu=2,
+    mem=2048,
+    env_vars={
+        "NODE_ENV": "production",
+        "DATABASE_URL": "postgres://localhost:5432/mydb",
+        "API_KEY": "secret-key-123"
+    }
+)
+sandbox = resp.data
+
+# Environment variables are available
+result = sandbox.exec("echo $DATABASE_URL")
+print(result.data.data.stdout)
+```
+
+```bash CLI
+# Set environment variables
+voidrun create --template python --env NODE_ENV=production --env DATABASE_URL=postgres://localhost:5432/mydb
+```
+
+```bash cURL
+curl -X POST "https://api.voidrun.com/v1/sandboxes" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "configured-app",
+    "templateId": "python",
+    "envVars": {
+      "NODE_ENV": "production",
+      "DATABASE_URL": "postgres://localhost:5432/mydb"
+    }
+  }'
+```
+</CodeGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Package Management" icon="boxes" href="/environments/package-management">
+    Install packages dynamically at runtime.
+  </Card>
+  <Card title="Code Execution" icon="terminal" href="/core-concepts/code-execution">
+    Execute code in your custom environment.
+  </Card>
+</CardGroup>

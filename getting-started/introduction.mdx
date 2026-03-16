@@ -1,0 +1,228 @@
+---
+title: Introduction
+description: Welcome to VoidRun - the modern AI Sandbox platform for secure code execution.
+---
+
+# Welcome to VoidRun
+
+VoidRun is a modern sandbox environment that provisions highly secure, isolated MicroVMs for AI agents and developers. Execute code safely with enterprise-grade security and lightning-fast performance.
+
+<CardGroup cols={2}>
+  <Card title="🚀 Quick Start" icon="rocket" href="/getting-started/quickstart">
+    Get up and running with VoidRun in under 5 minutes.
+  </Card>
+  <Card title="📚 Core Concepts" icon="book" href="/core-concepts/lifecycle">
+    Understand sandboxes, lifecycle, and execution models.
+  </Card>
+</CardGroup>
+
+## What is VoidRun?
+
+VoidRun provides isolated MicroVM environments designed for AI workloads and developer tooling. Whether you're building AI agents, code interpreters, or CI/CD pipelines, VoidRun offers the security and flexibility you need.
+
+### Key Features
+
+<CardGroup cols={3}>
+  <Card title="⚡ Performance" icon="bolt">
+    Infinite running sandboxes with auto-sleep after 5 minutes of idle time. Resume in under 200ms.
+  </Card>
+  <Card title="🐳 Flexible Environments" icon="container-storage">
+    Custom Docker images supported. Run Docker and K3s natively inside sandboxes.
+  </Card>
+  <Card title="🔒 Security" icon="shield-lock">
+    Granular internet access control with allowlists and blocklists. Native Tailscale VPN connectivity.
+  </Card>
+  <Card title="💻 Code Execution" icon="terminal">
+    Full code interpreter capabilities. Install Ubuntu, Python, and TypeScript packages dynamically.
+  </Card>
+  <Card title="🌐 Direct Access" icon="arrow-right-arrow-left">
+    Interact with sandboxes via VNC and SSH for debugging and development.
+  </Card>
+  <Card title="🔑 Simple Auth" icon="key">
+    Bearer token authentication via `VOIDRUN_API_KEY` environment variable or SDK options.
+  </Card>
+</CardGroup>
+
+## How It Works
+
+VoidRun architecture is built on MicroVMs for maximum isolation and security:
+
+<Steps>
+  <Step title="Create a Sandbox">
+    Provision an isolated MicroVM with your preferred configuration and base image.
+  </Step>
+  <Step title="Execute Code">
+    Run commands, upload files, and execute code in multiple languages securely.
+  </Step>
+  <Step title="Manage Lifecycle">
+    Sandboxes run infinitely with auto-sleep. Resume instantly when needed.
+  </Step>
+  <Step title="Clean Up">
+    Delete sandboxes when finished, or let them hibernate for later use.
+  </Step>
+</Steps>
+
+## Use Cases
+
+### AI Code Execution
+
+Build AI agents that can safely execute generated code in isolated environments:
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const sandbox = await vr.createSandbox({ cpu: 2, mem: 2048 });
+
+// Execute AI-generated code safely
+const result = await sandbox.runCode(`
+def calculate_fibonacci(n):
+    if n <= 1:
+        return n
+    return calculate_fibonacci(n-1) + calculate_fibonacci(n-2)
+    
+print(calculate_fibonacci(10))
+`, { language: 'python' });
+
+console.log(result.stdout);
+await sandbox.remove();
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+resp = vr.sandboxes.create(cpu=2, mem=2048)
+sandbox = resp.data
+
+# Execute AI-generated code safely
+result = sandbox.run_code("""
+def calculate_fibonacci(n):
+    if n <= 1:
+        return n
+    return calculate_fibonacci(n-1) + calculate_fibonacci(n-2)
+    
+print(calculate_fibonacci(10))
+""", language="python")
+
+print(result.data.stdout)
+sandbox.delete()
+```
+
+```bash CLI
+# Create sandbox
+voidrun create --cpu 2 --mem 2048
+
+# Execute code (after sandbox is created)
+voidrun exec <sandbox-id> --code "print('Hello from VoidRun')" --language python
+
+# Clean up
+voidrun delete <sandbox-id>
+```
+
+```bash cURL
+# Create sandbox
+curl -X POST https://api.voidrun.com/v1/sandboxes \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"cpu": 2, "mem": 2048}'
+
+# Execute code (replace <sandbox-id> with actual ID)
+curl -X POST https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "python3 -c \"print(\\\"Hello from VoidRun\\\")\""}'
+```
+</CodeGroup>
+
+### Development Environments
+
+Spin up ephemeral development environments with custom tooling:
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const sandbox = await vr.createSandbox({ 
+  templateId: 'node:20',
+  cpu: 4, 
+  mem: 4096 
+});
+
+// Install dependencies and run tests
+await sandbox.exec({ command: 'npm install && npm test' });
+await sandbox.remove();
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+resp = vr.sandboxes.create(
+    template_id="node:20",
+    cpu=4,
+    mem=4096
+)
+sandbox = resp.data
+
+# Install dependencies and run tests
+sandbox.exec("npm install && npm test")
+sandbox.delete()
+```
+
+```bash CLI
+voidrun create --template node:20 --cpu 4 --mem 4096
+voidrun exec <sandbox-id> --command "npm install && npm test"
+voidrun delete <sandbox-id>
+```
+
+```bash cURL
+curl -X POST https://api.voidrun.com/v1/sandboxes \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"templateId": "node:20", "cpu": 4, "mem": 4096}'
+```
+</CodeGroup>
+
+## Who is VoidRun For?
+
+| Audience | Use Case |
+|-----------|----------|
+| **AI/ML Engineers** | Build code-interpreting AI agents with safe execution |
+| **Platform Teams** | Offer secure execution environments at scale |
+| **DevOps Engineers** | Create ephemeral CI/CD environments |
+| **Security Teams** | Run untrusted code in isolated MicroVMs |
+| **SaaS Builders** | Embed code execution in your products |
+
+## Next Steps
+
+<Note>
+Ready to start building? Check out the [Quickstart Guide](/getting-started/quickstart) to create your first sandbox.
+</Note>
+
+<CardGroup cols={2}>
+  <Card title="SDK Reference" icon="code" href="/sdks/typescript">
+    Explore the TypeScript and Python SDKs.
+  </Card>
+  <Card title="API Reference" icon="api" href="/api-reference/overview">
+    View the complete REST API documentation.
+  </Card>
+</CardGroup>
+
+## Resources
+
+<CardGroup cols={3}>
+  <Card title="📊 Dashboard" icon="gauge">
+    Manage your sandboxes at [dash.void-run.com](https://dash.void-run.com)
+  </Card>
+  <Card title="🐙 GitHub" icon="github">
+    Star us on [GitHub](https://github.com/voidrun-ai)
+  </Card>
+  <Card title="💬 Community" icon="comments">
+    Join our community for support and updates.
+  </Card>
+</CardGroup>

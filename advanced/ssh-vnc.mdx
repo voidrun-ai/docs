@@ -1,0 +1,793 @@
+---
+title: SSH & VNC Access
+description: Connect directly to VoidRun sandboxes via SSH for terminal access or VNC for graphical interface access.
+---
+
+# SSH & VNC Access
+
+For scenarios requiring direct interaction with a sandbox, VoidRun provides SSH and VNC access. This is essential for:
+
+- **Interactive debugging** - Direct terminal access for troubleshooting
+- **Visual AI agents** - Browser automation and GUI testing via VNC
+- **Development workflows** - Use your preferred IDE with remote development
+- **Manual testing** - Interact with applications running in the sandbox
+
+<CardGroup cols={3}>
+  <Card title="🔐 SSH Access" icon="terminal">
+    Secure shell access for terminal-based interaction and scripting.
+  </Card>
+  <Card title="🖥️ VNC Access" icon="display">
+    Graphical desktop access for browser automation and GUI apps.
+  </Card>
+  <Card title="⚡ PTY Streaming" icon="bolt">
+    WebSocket-based terminal streaming via SDK for real-time interaction.
+  </Card>
+</CardGroup>
+
+## SSH Access
+
+SSH is pre-installed and enabled in all VoidRun images. You can connect directly to your sandbox using SSH clients.
+
+### Prerequisites
+
+SSH access requires:
+1. A running sandbox
+2. SSH credentials (host, port, username, password/key)
+3. Network connectivity to the sandbox
+
+<Note>
+SSH credentials are typically provided in the sandbox creation response or via a dedicated API endpoint. The exact method depends on your VoidRun configuration.
+</Note>
+
+### Retrieving SSH Credentials
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+
+// Create a sandbox
+const sandbox = await vr.createSandbox({
+  name: 'ssh-demo',
+  cpu: 2,
+  mem: 2048
+});
+
+// TODO: Verify exact method for retrieving SSH credentials
+// SSH credentials may be in the sandbox response or via a dedicated method
+// Example expected structure:
+// const sshConfig = await sandbox.getSshConfig();
+// console.log('SSH Host:', sshConfig.host);
+// console.log('SSH Port:', sshConfig.port);
+// console.log('SSH User:', sshConfig.username);
+// console.log('SSH Password:', sshConfig.password);
+
+// For now, check sandbox metadata for SSH info
+console.log('Sandbox ID:', sandbox.id);
+console.log('Sandbox:', JSON.stringify(sandbox, null, 2));
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+
+# Create a sandbox
+resp = vr.sandboxes.create(
+    name="ssh-demo",
+    cpu=2,
+    mem=2048
+)
+sandbox = resp.data
+
+# TODO: Verify exact method for retrieving SSH credentials
+# SSH credentials may be in the sandbox response or via a dedicated method
+# Example expected structure:
+# ssh_config = sandbox.get_ssh_config()
+# print(f"SSH Host: {ssh_config.host}")
+# print(f"SSH Port: {ssh_config.port}")
+# print(f"SSH User: {ssh_config.username}")
+
+print(f"Sandbox ID: {sandbox.id}")
+```
+
+```bash CLI
+# Create a sandbox
+voidrun create --name ssh-demo --cpu 2 --mem 2048
+
+# TODO: Verify exact command for retrieving SSH credentials
+# Example expected command:
+# voidrun ssh-config <sandbox-id>
+
+# For now, describe the sandbox to see available info
+voidrun get <sandbox-id>
+```
+
+```bash cURL
+# Create a sandbox
+curl -X POST "https://api.voidrun.com/v1/sandboxes" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "ssh-demo", "cpu": 2, "mem": 2048}'
+
+# TODO: Verify exact endpoint for SSH credentials
+# Example expected endpoint:
+# curl -X GET "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/ssh" \
+#   -H "Authorization: Bearer $VOIDRUN_API_KEY"
+```
+</CodeGroup>
+
+### Connecting via SSH
+
+Once you have the SSH credentials, connect using your SSH client:
+
+<CodeGroup>
+```bash CLI Connection
+# Connect using password
+ssh -p <PORT> <USERNAME>@<HOST>
+# Example: ssh -p 2222 root@192.168.1.100
+
+# Connect using private key
+ssh -p <PORT> -i ~/.ssh/voidrun_key <USERNAME>@<HOST>
+
+# Connect with verbose output for debugging
+ssh -v -p <PORT> <USERNAME>@<HOST>
+```
+
+```bash Using SSH Config
+# Add to ~/.ssh/config for easier access
+Host voidrun-sandbox
+    HostName <HOST>
+    Port <PORT>
+    User <USERNAME>
+    IdentityFile ~/.ssh/voidrun_key
+
+# Then connect simply with:
+ssh voidrun-sandbox
+```
+
+```bash SCP File Transfer
+# Copy file to sandbox
+scp -P <PORT> ./local-file.txt <USERNAME>@<HOST>:/remote/path/
+
+# Copy file from sandbox
+scp -P <PORT> <USERNAME>@<HOST>:/remote/path/file.txt ./local/
+
+# Copy directory recursively
+scp -P <PORT> -r ./local-dir/ <USERNAME>@<HOST>:/remote/path/
+```
+</CodeGroup>
+
+### SSH via SDK (PTY Streaming)
+
+For programmatic terminal access, use the PTY streaming API:
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const sandbox = await vr.getSandbox('sandbox-id');
+
+// Connect to PTY for interactive terminal access
+const pty = await sandbox.pty.connect({
+  sessionId: 'my-session', // Optional: persistent session
+  cols: 80,
+  rows: 24
+});
+
+// Handle terminal output
+pty.onData((data: string) => {
+  process.stdout.write(data);
+});
+
+// Send input to terminal
+pty.write('ls -la\n');
+pty.write('pwd\n');
+
+// Resize terminal
+await pty.resize(120, 40);
+
+// Disconnect when done
+// pty.close();
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+import asyncio
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+resp = vr.sandboxes.get("sandbox-id")
+sandbox = resp.data
+
+# Connect to PTY for interactive terminal access
+async def terminal_session():
+    pty = await sandbox.pty.connect(
+        session_id="my-session",  # Optional: persistent session
+        cols=80,
+        rows=24
+    )
+    
+    # Handle terminal output
+    async for data in pty.on_data():
+        print(data, end='', flush=True)
+    
+    # Send input to terminal
+    await pty.write("ls -la\n")
+    await pty.write("pwd\n")
+    
+    # Resize terminal
+    await pty.resize(120, 40)
+
+asyncio.run(terminal_session())
+```
+
+```bash CLI
+# Connect to PTY via CLI
+voidrun pty <sandbox-id>
+
+# With specific dimensions
+voidrun pty <sandbox-id> --cols 120 --rows 40
+
+# Connect to persistent session
+voidrun pty <sandbox-id> --session my-session
+```
+
+```bash cURL
+# PTY requires WebSocket connection
+# Use SDK or CLI for PTY access
+```
+</CodeGroup>
+
+## VNC Access
+
+VNC provides graphical desktop access to your sandbox. This is essential for:
+
+- **Browser automation** - Run Selenium, Playwright, or Puppeteer with visible browsers
+- **GUI testing** - Test desktop applications with real user interaction
+- **Visual AI agents** - Enable AI to interact with graphical interfaces
+- **Remote development** - Use GUI-based IDEs and tools
+
+<Note>
+VNC is not pre-installed in default VoidRun images. You need to install a desktop environment and VNC server, or use a custom image with VNC pre-configured.
+</Note>
+
+### Installing VNC Server
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const sandbox = await vr.createSandbox({
+  name: 'vnc-sandbox',
+  cpu: 4,
+  mem: 4096 // 4GB for GUI applications
+});
+
+// Install desktop environment and VNC server
+console.log('Installing desktop environment and VNC...');
+
+await sandbox.exec({ 
+  command: 'sudo apt-get update && sudo apt-get install -y xfce4 xfce4-goodies tightvncserver' 
+});
+
+// Set VNC password
+await sandbox.exec({ 
+  command: 'mkdir -p ~/.vnc && echo "voidrun" | vncpasswd -f > ~/.vnc/passwd && chmod 600 ~/.vnc/passwd' 
+});
+
+// Start VNC server
+await sandbox.exec({ command: 'vncserver :1 -geometry 1920x1080 -depth 24' });
+
+// Verify VNC is running
+const result = await sandbox.exec({ command: 'vncserver -list' });
+console.log('VNC sessions:', result.data?.stdout);
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+resp = vr.sandboxes.create(
+    name="vnc-sandbox",
+    cpu=4,
+    mem=4096
+)
+sandbox = resp.data
+
+# Install desktop environment and VNC server
+print("Installing desktop environment and VNC...")
+
+sandbox.exec("sudo apt-get update && sudo apt-get install -y xfce4 xfce4-goodies tightvncserver")
+
+# Set VNC password
+sandbox.exec('mkdir -p ~/.vnc && echo "voidrun" | vncpasswd -f > ~/.vnc/passwd && chmod 600 ~/.vnc/passwd')
+
+# Start VNC server
+sandbox.exec("vncserver :1 -geometry 1920x1080 -depth 24")
+
+# Verify VNC is running
+result = sandbox.exec("vncserver -list")
+print("VNC sessions:", result.data.data.stdout)
+```
+
+```bash CLI
+# Create sandbox
+voidrun create --name vnc-sandbox --cpu 4 --mem 4096
+
+# Install desktop environment and VNC server
+voidrun exec <sandbox-id> --command "sudo apt-get update && sudo apt-get install -y xfce4 xfce4-goodies tightvncserver"
+
+# Set VNC password
+voidrun exec <sandbox-id> --command 'mkdir -p ~/.vnc && echo "voidrun" | vncpasswd -f > ~/.vnc/passwd && chmod 600 ~/.vnc/passwd'
+
+# Start VNC server
+voidrun exec <sandbox-id> --command "vncserver :1 -geometry 1920x1080 -depth 24"
+
+# Verify VNC is running
+voidrun exec <sandbox-id> --command "vncserver -list"
+```
+
+```bash cURL
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "sudo apt-get update && sudo apt-get install -y xfce4 xfce4-goodies tightvncserver"}'
+```
+</CodeGroup>
+
+### Retrieving VNC Connection Details
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const sandbox = await vr.getSandbox('sandbox-id');
+
+// TODO: Verify exact method for retrieving VNC connection details
+// VNC connection details may be retrieved via:
+// 1. A dedicated API endpoint
+// 2. The sandbox metadata
+// 3. Port forwarding configuration
+
+// Example expected structure:
+// const vncConfig = await sandbox.getVncConfig();
+// console.log('VNC Host:', vncConfig.host);
+// console.log('VNC Port:', vncConfig.port); // Usually 5901 for :1 display
+// console.log('VNC Password:', vncConfig.password);
+// console.log('VNC URL:', vncConfig.url); // For web-based VNC clients
+
+// For now, check VNC server status
+const result = await sandbox.exec({ command: 'vncserver -list' });
+console.log('VNC sessions:', result.data?.stdout);
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+resp = vr.sandboxes.get("sandbox-id")
+sandbox = resp.data
+
+# TODO: Verify exact method for retrieving VNC connection details
+# VNC connection details may be retrieved via:
+# 1. A dedicated API endpoint
+# 2. The sandbox metadata
+# 3. Port forwarding configuration
+
+# Example expected structure:
+# vnc_config = sandbox.get_vnc_config()
+# print(f"VNC Host: {vnc_config.host}")
+# print(f"VNC Port: {vnc_config.port}")
+# print(f"VNC Password: {vnc_config.password}")
+
+# For now, check VNC server status
+result = sandbox.exec("vncserver -list")
+print("VNC sessions:", result.data.data.stdout)
+```
+
+```bash CLI
+# TODO: Verify exact command for VNC connection details
+# Example expected command:
+# voidrun vnc-config <sandbox-id>
+
+# Check VNC server status
+voidrun exec <sandbox-id> --command "vncserver -list"
+
+# Get sandbox details (may include port forwarding info)
+voidrun get <sandbox-id>
+```
+
+```bash cURL
+# TODO: Verify exact endpoint for VNC configuration
+# Example expected endpoint:
+# curl -X GET "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/vnc" \
+#   -H "Authorization: Bearer $VOIDRUN_API_KEY"
+```
+</CodeGroup>
+
+### Connecting via VNC Client
+
+<CodeGroup>
+```bash RealVNC Viewer
+# Connect using VNC client
+vncviewer <HOST>:<PORT>
+
+# Example for display :1 (port 5901)
+vncviewer 192.168.1.100:5901
+
+# With specific quality settings
+vncviewer -Quality=High -FullScreen <HOST>:<PORT>
+```
+
+```bash TigerVNC
+# Connect using TigerVNC
+vncviewer <HOST>:<PORT>
+
+# With geometry specified
+vncviewer -geometry 1920x1080 <HOST>:5901
+```
+
+```bash SSH Tunnel (Recommended for Security)
+# Create SSH tunnel to VNC port
+ssh -L 5901:localhost:5901 -p <SSH_PORT> <USERNAME>@<HOST>
+
+# Then connect to local forwarded port
+vncviewer localhost:5901
+```
+</CodeGroup>
+
+### Browser-Based VNC (noVNC)
+
+For web-based VNC access without a client:
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const sandbox = await vr.getSandbox('sandbox-id');
+
+// Install noVNC for browser-based access
+await sandbox.exec({ 
+  command: 'sudo apt-get install -y novnc websockify' 
+});
+
+// Start noVNC web server
+await sandbox.exec({ 
+  command: 'websockify --web=/usr/share/novnc/ 6080 localhost:5901 &' 
+});
+
+// TODO: Verify how to get the noVNC URL
+// Expected: https://<host>:6080/vnc.html
+console.log('noVNC should be available at the sandbox host on port 6080');
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+resp = vr.sandboxes.get("sandbox-id")
+sandbox = resp.data
+
+# Install noVNC for browser-based access
+sandbox.exec("sudo apt-get install -y novnc websockify")
+
+# Start noVNC web server
+sandbox.exec("websockify --web=/usr/share/novnc/ 6080 localhost:5901 &")
+
+# TODO: Verify how to get the noVNC URL
+print("noVNC should be available at the sandbox host on port 6080")
+```
+
+```bash CLI
+# Install noVNC
+voidrun exec <sandbox-id> --command "sudo apt-get install -y novnc websockify"
+
+# Start noVNC web server
+voidrun exec <sandbox-id> --command "websockify --web=/usr/share/novnc/ 6080 localhost:5901 &"
+```
+
+```bash cURL
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "sudo apt-get install -y novnc websockify && websockify --web=/usr/share/novnc/ 6080 localhost:5901 &"}'
+```
+</CodeGroup>
+
+## Browser Automation with VNC
+
+VNC is particularly useful for visual AI agents and browser automation:
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const sandbox = await vr.getSandbox('vnc-sandbox');
+
+// Install browser and automation tools
+await sandbox.exec({ 
+  command: 'sudo apt-get install -y chromium-browser chromium-chromedriver' 
+});
+
+// Install Python Selenium
+await sandbox.exec({ command: 'pip install selenium' });
+
+// Run a browser automation script
+const script = `
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+
+options = Options()
+options.add_argument('--no-sandbox')
+options.add_argument('--disable-dev-shm-usage')
+
+driver = webdriver.Chrome(options=options)
+driver.get('https://example.com')
+print('Page title:', driver.title)
+driver.save_screenshot('/tmp/screenshot.png')
+driver.quit()
+`;
+
+await sandbox.fs.uploadFile('/tmp/automation.py', script);
+const result = await sandbox.exec({ command: 'python /tmp/automation.py' });
+console.log(result.data?.stdout);
+
+// Download screenshot
+const screenshot = await sandbox.fs.downloadFile('/tmp/screenshot.png');
+// Save screenshot locally...
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+resp = vr.sandboxes.get("vnc-sandbox")
+sandbox = resp.data
+
+# Install browser and automation tools
+sandbox.exec("sudo apt-get install -y chromium-browser chromium-chromedriver")
+
+# Install Python Selenium
+sandbox.exec("pip install selenium")
+
+# Run a browser automation script
+script = """
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+
+options = Options()
+options.add_argument('--no-sandbox')
+options.add_argument('--disable-dev-shm-usage')
+
+driver = webdriver.Chrome(options=options)
+driver.get('https://example.com')
+print('Page title:', driver.title)
+driver.save_screenshot('/tmp/screenshot.png')
+driver.quit()
+"""
+
+sandbox.fs.upload_file("/tmp/automation.py", script)
+result = sandbox.exec("python /tmp/automation.py")
+print(result.data.data.stdout)
+
+# Download screenshot
+screenshot = sandbox.fs.download_file("/tmp/screenshot.png")
+```
+
+```bash CLI
+# Install browser and automation tools
+voidrun exec <sandbox-id> --command "sudo apt-get install -y chromium-browser chromium-chromedriver"
+
+# Install Python Selenium
+voidrun exec <sandbox-id> --command "pip install selenium"
+
+# Run automation script
+voidrun exec <sandbox-id> --command "python /tmp/automation.py"
+
+# Download screenshot
+voidrun download <sandbox-id> /tmp/screenshot.png ./screenshot.png
+```
+
+```bash cURL
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "sudo apt-get install -y chromium-browser && pip install selenium"}'
+```
+</CodeGroup>
+
+## Lifecycle Considerations
+
+<Warning>
+**SSH and VNC connections will be dropped if the sandbox enters auto-sleep mode.** Sandboxes automatically sleep after 5 minutes of inactivity. To maintain connections during active sessions, keep the sandbox alive.
+</Warning>
+
+### Keeping Sandbox Alive
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const sandbox = await vr.getSandbox('sandbox-id');
+
+// Option 1: Resume sandbox if sleeping
+await sandbox.resume();
+
+// Option 2: Keep-alive with periodic activity
+setInterval(async () => {
+  await sandbox.exec({ command: 'echo "keepalive" > /dev/null' });
+}, 4 * 60 * 1000); // Every 4 minutes (before 5-min timeout)
+
+// Option 3: Run a long-running process
+await sandbox.exec({ 
+  command: 'while true; do sleep 60; done &',
+  background: true
+});
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+import threading
+import time
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+resp = vr.sandboxes.get("sandbox-id")
+sandbox = resp.data
+
+# Option 1: Resume sandbox if sleeping
+sandbox.resume()
+
+# Option 2: Keep-alive with periodic activity
+def keepalive():
+    while True:
+        sandbox.exec("echo 'keepalive' > /dev/null")
+        time.sleep(4 * 60)  # Every 4 minutes
+
+keepalive_thread = threading.Thread(target=keepalive, daemon=True)
+keepalive_thread.start()
+
+# Option 3: Run a long-running process
+sandbox.exec("while true; do sleep 60; done &")
+```
+
+```bash CLI
+# Resume sandbox if sleeping
+voidrun resume <sandbox-id>
+
+# Keep-alive script (run in background)
+while true; do
+  voidrun exec <sandbox-id> --command "echo keepalive"
+  sleep 240
+done &
+
+# Start long-running process
+voidrun exec <sandbox-id> --command "while true; do sleep 60; done &"
+```
+
+```bash cURL
+# Resume sandbox
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/resume" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+```
+</CodeGroup>
+
+### Detecting Sleep State
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+
+// Check sandbox status
+const sandbox = await vr.getSandbox('sandbox-id');
+
+if (sandbox.status === 'sleeping') {
+  console.log('Sandbox is sleeping, resuming...');
+  await sandbox.resume();
+  console.log('Sandbox resumed, ready for SSH/VNC');
+}
+
+console.log('Current status:', sandbox.status);
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+resp = vr.sandboxes.get("sandbox-id")
+sandbox = resp.data
+
+if sandbox.status == "sleeping":
+    print("Sandbox is sleeping, resuming...")
+    sandbox.resume()
+    print("Sandbox resumed, ready for SSH/VNC")
+
+print(f"Current status: {sandbox.status}")
+```
+
+```bash CLI
+# Check sandbox status
+voidrun get <sandbox-id>
+
+# Resume if sleeping
+voidrun resume <sandbox-id>
+```
+
+```bash cURL
+# Check sandbox status
+curl -X GET "https://api.voidrun.com/v1/sandboxes/<sandbox-id>" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+
+# Resume if sleeping
+curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/resume" \
+  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+```
+</CodeGroup>
+
+## Troubleshooting
+
+### Common SSH Issues
+
+| Issue | Solution |
+|-------|----------|
+| **Connection refused** | Verify SSH service is running: `systemctl status ssh` |
+| **Authentication failed** | Check credentials and ensure password auth is enabled |
+| **Host key mismatch** | Remove old key from `~/.ssh/known_hosts` |
+| **Connection timeout** | Check network connectivity and firewall rules |
+
+### Common VNC Issues
+
+| Issue | Solution |
+|-------|----------|
+| **VNC server won't start** | Check if display :1 is already in use: `vncserver -list` |
+| **Black screen** | Ensure desktop environment is installed properly |
+| **Connection refused** | Verify VNC server is running and port is accessible |
+| **Slow performance** | Reduce color depth or resolution in VNC settings |
+
+### Debug Commands
+
+<CodeGroup>
+```bash CLI
+# Check SSH service status
+voidrun exec <sandbox-id> --command "systemctl status ssh --no-pager"
+
+# Check VNC server status
+voidrun exec <sandbox-id> --command "vncserver -list"
+
+# Check listening ports
+voidrun exec <sandbox-id> --command "ss -tlnp"
+
+# Check firewall rules
+voidrun exec <sandbox-id> --command "sudo iptables -L -n"
+
+# View SSH logs
+voidrun exec <sandbox-id> --command "sudo journalctl -u ssh -n 50 --no-pager"
+```
+</CodeGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Nested Containers" icon="docker" href="/advanced/nested-containers">
+    Run Docker and Kubernetes inside your sandboxes.
+  </Card>
+  <Card title="Tailscale VPN" icon="network-wired" href="/networking/tailscale">
+    Connect to sandboxes securely via Tailscale.
+  </Card>
+</CardGroup>

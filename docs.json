@@ -1,57 +1,84 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "maple",
-  "name": "Voidrun",
-  "description": "Sandboxed VM execution with REST, streaming, and WebSocket APIs.",
+  "name": "VoidRun",
+  "description": "Modern AI Sandbox platform for secure code execution.",
   "favicon": "/favicon.svg",
   "colors": {
-    "primary": "#0F3D3E"
+    "primary": "#0F3D3E",
+    "light": "#E6F2F2",
+    "dark": "#0F3D3E"
+  },
+  "typography": {
+    "headings": {
+      "fontFamily": "Inter"
+    },
+    "body": {
+      "fontFamily": "Inter"
+    }
   },
   "navigation": {
     "groups": [
       {
-        "group": "Introduction",
-        "pages": ["mdx/index", "mdx/ways-to-use"]
-      },
-      {
-        "group": "Quickstart",
-        "pages": ["mdx/quickstart"]
-      },
-      {
-        "group": "SDKs",
-        "pages": ["mdx/sdk-overview", "mdx/sdk-typescript", "mdx/sdk-python"]
-      },
-      {
-        "group": "Core Concepts",
-        "pages": ["mdx/architecture", "mdx/concepts"]
-      },
-      {
-        "group": "Sandbox Management",
-        "pages": ["mdx/sandboxes", "mdx/images"]
-      },
-      {
-        "group": "Agent Tools",
+        "group": "Getting Started",
         "pages": [
-          "mdx/execution",
-          "mdx/background-commands",
-          "mdx/pty",
-          "mdx/files",
-          "mdx/fs-and-streaming",
-          "mdx/code-interpreter"
+          "getting-started/introduction",
+          "getting-started/quickstart"
         ]
       },
       {
-        "group": "Security and Accounts",
-        "pages": ["mdx/security", "mdx/authentication", "mdx/orgs-and-keys"]
+        "group": "Core Concepts",
+        "pages": [
+          "core-concepts/lifecycle",
+          "core-concepts/code-execution",
+          "core-concepts/file-system"
+        ]
       },
       {
-        "group": "Operations",
-        "pages": ["mdx/configuration", "mdx/cli", "mdx/deployments", "mdx/troubleshooting"]
+        "group": "Environments",
+        "pages": [
+          "environments/custom-images",
+          "environments/package-management"
+        ]
       },
       {
-        "group": "Reference",
-        "pages": ["mdx/errors", "mdx/openapi-notes"]
+        "group": "Networking",
+        "pages": [
+          "networking/internet-access",
+          "networking/tailscale"
+        ]
+      },
+      {
+        "group": "Advanced Access",
+        "pages": [
+          "advanced/nested-containers",
+          "advanced/ssh-vnc"
+        ]
       }
     ]
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Dashboard",
+        "href": "https://dash.void-run.com"
+      },
+      {
+        "label": "GitHub",
+        "href": "https://github.com/voidrun-ai"
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/voidrun-ai"
+    }
+  },
+  "api": {
+    "baseUrl": "https://api.voidrun.com"
   }
 }
