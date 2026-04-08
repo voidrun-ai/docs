@@ -1,0 +1,165 @@
+---
+title: File ingest and ETL
+description: Upload files into a sandbox, transform them with shell or CLI tools, and download results, all without a persistent VM.
+---
+
+# Example: File ingest and ETL
+
+You use this pattern when your backend receives **files** (CSV, JSON, logs, archives) and you want to **process** them with standard Unix or language CLIs inside an isolated VM. You upload into a known path, you **`exec`** transformation steps, you **download** artifacts.
+
+## What you accomplish
+
+You move data **in** with **`uploadFile` / `upload_file`**, you run **deterministic** commands (`awk`, `python -c`, `jq` if installed, etc.), you read **output files** back with **`downloadFile` / `download_file`**. You delete the sandbox when the job completes so you do not store customer data longer than necessary.
+
+## Concepts you use
+
+- **Paths:** You choose paths under **`/tmp`** or **`/work`** consistently so you avoid clashing with image layout.
+- **Binary vs text:** **`downloadFile` / `download_file`** returns **bytes** in Python; you **decode** explicitly with the right encoding.
+- **Large files:** You use **stream** APIs (`uploadFileStream`, `downloadFileStream`) when files exceed comfortable memory: see [File system](/core-concepts/file-system).
+
+## Prerequisites
+
+You completed [Examples overview](/examples/overview).
+
+## Step 1: Create sandbox and upload input
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+const sandbox = await vr.createSandbox({ name: 'etl-job', mem: 2048 });
+
+await sandbox.exec({ command: 'mkdir -p /work' });
+
+const csv = `id,score\n1,10\n2,20\n`;
+await sandbox.fs.uploadFile('/work/input.csv', csv);
+```
+
+```python Python
+from voidrun import VoidRun
+
+vr = VoidRun()
+sandbox = vr.create_sandbox(name="etl-job", mem=2048)
+
+sandbox.exec("mkdir -p /work")
+
+csv = "id,score\n1,10\n2,20\n"
+sandbox.fs.upload_file("/work/input.csv", csv)
+```
+</CodeGroup>
+
+## Step 2: Transform in place
+
+You run a shell pipeline. You redirect output to **`/work/output.csv`**. You check **exit code** before you download.
+
+<CodeGroup>
+```typescript TypeScript
+const run = await sandbox.exec({
+  command:
+    'set -euo pipefail; mkdir -p /work && tail -n +2 /work/input.csv | awk -F, \'{print $1 "," ($2 * 2)}\' | { echo "id,doubled"; cat; } > /work/output.csv',
+  timeout: 120,
+});
+
+if ((run.data?.exitCode ?? 1) !== 0) {
+  throw new Error(`etl_failed: ${run.data?.stderr}`);
+}
+```
+
+```python Python
+run = sandbox.exec(
+    "set -euo pipefail; mkdir -p /work && "
+    r"tail -n +2 /work/input.csv | awk -F, '{print $1 \",\" ($2 * 2)}' "
+    '| { echo "id,doubled"; cat; } > /work/output.csv',
+    timeout=120,
+)
+
+if (run.data.exit_code or 1) != 0:
+    raise RuntimeError(f"etl_failed: {run.data.stderr}")
+```
+</CodeGroup>
+
+<Note>
+You adjust the **`awk`** line for your real schema. When logic grows beyond one line, you **upload a script file** and **`exec`** `python /work/transform.py` instead.
+</Note>
+
+## Step 3: Download the result
+
+<CodeGroup>
+```typescript TypeScript
+const outBuf = await sandbox.fs.downloadFile('/work/output.csv');
+console.log(outBuf.toString('utf8'));
+```
+
+```python Python
+raw = sandbox.fs.download_file("/work/output.csv")
+print(raw.decode("utf-8"))
+```
+</CodeGroup>
+
+## Step 4: Optional Python transform instead of awk
+
+You upload a **`.py`** file and you execute it. You keep user logic out of the shell string when the transform is complex.
+
+<CodeGroup>
+```typescript TypeScript
+await sandbox.fs.uploadFile(
+  '/work/transform.py',
+  `import csv, sys
+rows = list(csv.reader(open("/work/input.csv")))
+w = csv.writer(open("/work/output.csv", "w"))
+w.writerow(["id", "doubled"])
+for r in rows[1:]:
+    w.writerow([r[0], str(int(r[1]) * 2)])
+`,
+);
+
+const py = await sandbox.exec({ command: 'python3 /work/transform.py', timeout: 120 });
+if ((py.data?.exitCode ?? 1) !== 0) throw new Error(py.data?.stderr);
+```
+
+```python Python
+sandbox.fs.upload_file(
+    "/work/transform.py",
+    """import csv
+rows = list(csv.reader(open("/work/input.csv")))
+w = csv.writer(open("/work/output.csv", "w"))
+w.writerow(["id", "doubled"])
+for r in rows[1:]:
+    w.writerow([r[0], str(int(r[1]) * 2)])
+""",
+)
+py = sandbox.exec("python3 /work/transform.py", timeout=120)
+if (py.data.exit_code or 1) != 0:
+    raise RuntimeError(py.data.stderr)
+```
+</CodeGroup>
+
+## Step 5: Clean up
+
+<CodeGroup>
+```typescript TypeScript
+await sandbox.remove();
+```
+
+```python Python
+sandbox.remove()
+```
+</CodeGroup>
+
+## Practices you should follow
+
+- You **validate** uploads (size, type, virus scanning at the edge) before you upload to VoidRun.
+- You use **random subdirectory names** per job when you run concurrent ETL to avoid path clashes inside one sandbox (or you use one sandbox per job).
+- You prefer **streaming** APIs for multi‑GB files.
+
+## Related guides
+
+<CardGroup cols={2}>
+  <Card title="File system" icon="folder" href="/core-concepts/file-system">
+    Streams, archives, permissions
+  </Card>
+  <Card title="Multi-step job" icon="layers" href="/examples/multi-step-job">
+    Longer pipelines in one VM
+  </Card>
+</CardGroup>

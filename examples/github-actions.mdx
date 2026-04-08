@@ -1,0 +1,248 @@
+---
+title: GitHub Actions
+description: "Run VoidRun sandboxes from GitHub Actions: secrets, sandbox naming, long exec with streaming, and cleanup."
+---
+
+# Example: GitHub Actions
+
+You use this pattern when **GitHub Actions** is your orchestrator and you want **heavy or isolated work** (builds, tests, image tooling) to run inside a **VoidRun sandbox** instead of on the default `ubuntu-latest` runner alone. You inject **`VR_API_KEY`** from secrets, you name sandboxes so you can correlate logs with **`GITHUB_RUN_ID`**, you **`exec`** with a **long timeout** and optional **streaming**, and you **`remove`** the sandbox in a **`finally`** block.
+
+A full production-style script lives in this repository at **`image-builder/.github/scripts/build-in-sandbox.ts`**: it creates a **`docker`** image sandbox, clones the repo with **`GITHUB_TOKEN`**, runs a multi-step shell build, and streams stdout/stderr. This page distills that pattern so you can adapt it without copying image-builder specifics.
+
+## What you accomplish
+
+You trigger a workflow on **`push`**, **`pull_request`**, or **`workflow_dispatch`**. A step runs **Node** (or **Python**) on the runner, calls **`@voidrun/sdk`** or **`voidrun`**, provisions a sandbox, runs your commands, then deletes the sandbox **even when the job fails**.
+
+## Prerequisites
+
+You completed [Examples overview](/examples/overview). You add a repository **secret**:
+
+| Secret | Purpose |
+|--------|---------|
+| **`VR_API_KEY`** | API key from the [dashboard](https://dash.void-run.com) |
+
+<Note>
+Older internal scripts sometimes used **`VOIDRUN_API_KEY`**. You should standardize on **`VR_API_KEY`** for new workflows so you match the [SDKs & API](/sdks/overview) docs.
+
+**Self-hosted:** set **`VR_API_URL`** (or pass **`baseUrl` / `base_url`**) in the workflow **`env`** and in your script: see [Self-hosted deployments](/advanced/self-hosted).
+</Note>
+
+You grant **`GITHUB_TOKEN`** (default) **`contents: read`** (or broader if you clone private submodules) so the sandbox can **`git clone`** your repository.
+
+## Pattern from `build-in-sandbox.ts`
+
+The reference script does the following (you mirror the same shape in your own repo):
+
+1. **Read** `GITHUB_REPOSITORY`, `GITHUB_SHA`, `GITHUB_RUN_NUMBER`, `GITHUB_TOKEN`, `GITHUB_SERVER_URL`.
+2. **Construct** a clone URL with `x-access-token` when a token is present (HTTPS clone inside the sandbox).
+3. **`createSandbox`** with a **unique `name`**, enough **CPU/memory**, **`autoSleep: false`** for long jobs, and **`image: 'docker'`** when the workload needs Docker in the VM (see [System images](/environments/custom-images#system-images)).
+4. **Upload** a generated shell script with **`fs.uploadFile`**, **`chmod`**, then **`exec`** with **`timeout`** (e.g. 3600 seconds) and **`onStdout` / `onStderr` / `onExit`** handlers.
+5. **`remove`** the sandbox in **`finally`**.
+
+You do **not** commit the API key; you pass it only via **`env`** from **`secrets`**.
+
+## Step 1: Workflow job skeleton
+
+You check out the repo on the runner, you install Node, you run your script.
+
+```yaml
+# .github/workflows/voidrun-build.yml
+name: Build in VoidRun
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sandbox-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install SDK and tsx
+        run: npm install @voidrun/sdk@latest tsx
+
+      - name: Run build in sandbox
+        env:
+          VR_API_KEY: ${{ secrets.VR_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+        run: npx tsx .github/scripts/run-in-sandbox.ts
+```
+
+## Step 2: TypeScript runner (trimmed pattern)
+
+You keep the script small on the runner; you put the heavy logic in the **shell** you upload or in **`exec`** commands. This example clones the default branch at **`GITHUB_SHA`** and runs **`./scripts/ci.sh`** (you replace that with your commands).
+
+```typescript
+// .github/scripts/run-in-sandbox.ts
+import { VoidRun } from '@voidrun/sdk';
+
+async function main() {
+  const apiKey = process.env.VR_API_KEY;
+  const repo = process.env.GITHUB_REPOSITORY;
+  const sha = process.env.GITHUB_SHA;
+  const runNumber = process.env.GITHUB_RUN_NUMBER ?? '0';
+  const token = process.env.GITHUB_TOKEN;
+  const serverUrl = process.env.GITHUB_SERVER_URL ?? 'https://github.com';
+
+  if (!apiKey) throw new Error('VR_API_KEY is required');
+  if (!repo) throw new Error('GITHUB_REPOSITORY is required');
+
+  const vr = new VoidRun({ apiKey });
+
+  const sandbox = await vr.createSandbox({
+    name: `gha-${runNumber}-${Date.now()}`,
+    image: 'code',
+    cpu: 2,
+    mem: 4096,
+    autoSleep: false,
+  });
+
+  const cloneUrl = token
+    ? `https://x-access-token:${token}@${serverUrl.replace('https://', '')}/${repo}.git`
+    : `${serverUrl}/${repo}.git`;
+
+  const script = `set -euo pipefail
+sudo mkdir -p /work && sudo chown "$(whoami)" /work
+git clone "${cloneUrl}" /work/repo
+cd /work/repo
+git checkout ${sha}
+./scripts/ci.sh
+`;
+
+  try {
+    await sandbox.fs.uploadFile('/tmp/gha.sh', script);
+    await sandbox.exec({ command: 'chmod +x /tmp/gha.sh' });
+
+    let exitCode = 1;
+    await sandbox.exec(
+      { command: 'bash /tmp/gha.sh', timeout: 3600 },
+      {
+        onStdout: (d) => process.stdout.write(d),
+        onStderr: (d) => process.stderr.write(d),
+        onExit: (e) => {
+          exitCode = e.exitCode ?? 1;
+        },
+      },
+    );
+
+    if (exitCode !== 0) {
+      throw new Error(`Remote script exited with ${exitCode}`);
+    }
+  } finally {
+    await sandbox.remove();
+  }
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
+```
+
+<Note>
+If **`./scripts/ci.sh`** does not exist in your repo yet, replace that line with **`echo ok`** until you wire real steps. For **Docker-in-Docker** or **qemu**-style builds, switch **`image`** to **`docker`** and raise **`mem`** like the reference (**~14 GB** in `build-in-sandbox.ts`).
+</Note>
+
+## Step 3: Python variant (sync)
+
+You can run the same flow with **`voidrun`** on the runner if you prefer Python.
+
+```python
+# .github/scripts/run_in_sandbox.py
+import os
+import sys
+
+from voidrun import VoidRun
+
+
+def main() -> None:
+    api_key = os.environ.get("VR_API_KEY")
+    repo = os.environ.get("GITHUB_REPOSITORY")
+    sha = os.environ.get("GITHUB_SHA", "main")
+    token = os.environ.get("GITHUB_TOKEN")
+    server = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
+    run_number = os.environ.get("GITHUB_RUN_NUMBER", "0")
+
+    if not api_key:
+        raise SystemExit("VR_API_KEY is required")
+    if not repo:
+        raise SystemExit("GITHUB_REPOSITORY is required")
+
+    vr = VoidRun()
+    sandbox = vr.create_sandbox(
+        name=f"gha-{run_number}",
+        image="code",
+        cpu=2,
+        mem=4096,
+        auto_sleep=False,
+    )
+
+    clone_url = (
+        f"https://x-access-token:{token}@{server.replace('https://', '')}/{repo}.git"
+        if token
+        else f"{server}/{repo}.git"
+    )
+
+    script = f"""set -euo pipefail
+sudo mkdir -p /work && sudo chown "$(whoami)" /work
+git clone "{clone_url}" /work/repo
+cd /work/repo
+git checkout {sha}
+./scripts/ci.sh
+"""
+
+    try:
+        sandbox.fs.upload_file("/tmp/gha.sh", script)
+        sandbox.exec("chmod +x /tmp/gha.sh")
+        r = sandbox.exec("bash /tmp/gha.sh", timeout=3600)
+        if (r.data.exit_code or 1) != 0:
+            print(r.data.stderr, file=sys.stderr)
+            raise SystemExit(r.data.exit_code or 1)
+    finally:
+        sandbox.remove()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+## Practices you should follow
+
+- You use **`permissions:`** minimally (`contents: read` for clone-only jobs).
+- You never print **`VR_API_KEY`** or embed it in the shell script string: only **`GITHUB_TOKEN`** appears in the generated clone URL inside the sandbox, which is still sensitive; rotate tokens per job policy.
+- You set **`autoSleep: false`** when the job can run longer than the idle-sleep window.
+- You cap **concurrency** (`concurrency:` group) if each run creates a large **`docker`** sandbox.
+- You read [CI test runner](/examples/ci-test-runner) for simpler **exit-code-only** jobs without streaming.
+
+## Reference in this repository
+
+The image-builder workflow script (**`image-builder/.github/scripts/build-in-sandbox.ts`**) demonstrates:
+
+- **`docker`** image, **14 GB** RAM, **`autoSleep: false`**
+- Streaming **`exec`** with **`onStdout` / `onStderr` / `onExit`**
+- Uploading a large inline **`build.sh`** and running it with **`sudo`**
+- **`finally`** cleanup with error logging on **`remove`**
+
+## Related guides
+
+<CardGroup cols={2}>
+  <Card title="CI test runner" icon="terminal" href="/examples/ci-test-runner">
+    Simpler exec + exit code pattern
+  </Card>
+  <Card title="Code execution" icon="code" href="/core-concepts/code-execution">
+    Streaming and timeouts
+  </Card>
+</CardGroup>

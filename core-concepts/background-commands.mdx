@@ -1,0 +1,37 @@
+---
+title: Background commands
+description: Run, list, wait for, and kill long-lived processes inside a sandbox via the Commands API.
+---
+
+# Background commands
+
+Long-running workloads (dev servers, workers, watchers) should use the **background commands** API instead of blocking **`exec`**. REST paths live under **`/sandboxes/{id}/commands/`** (`run`, `list`, `wait`, `kill`, attach/stream as documented in OpenAPI).
+
+## Typical flow
+
+1. **`POST .../commands/run`**: start a process; response includes a **PID**.
+2. **`GET .../commands/list`**: inspect running processes.
+3. **`POST .../commands/wait`**: block until a PID exits (or use attach/stream for logs).
+4. **`POST .../commands/kill`**: terminate a PID.
+
+See the **API Reference** tab for request bodies (command, optional `cwd`, `env`, `timeout`).
+
+## SDK usage (summary)
+
+- **TypeScript:** `sandbox.commands.run(command, env?, cwd?, timeout?)` returns **`CommandRunResponse`** with **`pid`** at the top level; **`list()`** returns **`processes`**; **`wait` / `kill`** take the PID. (Not an options object for `run`: positional arguments.)
+- **Python:** `sandbox.commands.run("cmd", None, "/app")` returns **`VoidRunResponse`**; use **`run_result.data.pid`** and the same list/wait/kill pattern as in [Code execution: Background Processes](/core-concepts/code-execution#background-processes).
+
+## Examples in the docs
+
+The [Code execution](/core-concepts/code-execution#background-processes) guide contains **TypeScript**, **Python**, **CLI**, and **cURL** snippets aligned with **`/commands/run`** and **`/commands/list`**.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Code execution" icon="terminal" href="/core-concepts/code-execution">
+    Background process examples and exec/streaming context.
+  </Card>
+  <Card title="SDKs & API" icon="code" href="/sdks/overview">
+    Auth, base URL, and OpenAPI pointers.
+  </Card>
+</CardGroup>

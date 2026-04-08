@@ -1,0 +1,33 @@
+---
+title: File watching
+description: Start a watch session and stream filesystem events over WebSocket.
+---
+
+# File watching
+
+VoidRun can **watch paths** inside a sandbox for create/modify/delete/rename events. The API is a small state machine:
+
+1. **`POST /sandboxes/{id}/files/watch`** with JSON **`path`**, optional **`recursive`**, **`ignoreHidden`**: response includes a **`sessionId`**.
+2. Open a **WebSocket** to **`/sandboxes/{id}/files/watch/{sessionId}/stream`** (see OpenAPI for the exact URL pattern on your deployment, including **`wss://`** and the API prefix).
+
+This is more efficient than polling large directory trees. Details and response shapes are in **`docs/openapi/voidrun.yml`** under **File System**.
+
+## SDKs
+
+- **TypeScript:** `sandbox.fs.watch` and related types (see package README).
+- **Python:** async watch helpers where exposed on **`sandbox.fs`** (see package README).
+
+## Docs and examples
+
+The [File system](/core-concepts/file-system) guide includes watch examples and a **cURL** note describing the **HTTP start** + **WebSocket stream** two-step flow.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="File system" icon="folder" href="/core-concepts/file-system">
+    Upload, download, and watch patterns.
+  </Card>
+  <Card title="API Reference" icon="api" href="/sdks/overview#interactive-api-reference">
+    OpenAPI: `files/watch` and stream endpoint.
+  </Card>
+</CardGroup>

@@ -1,0 +1,158 @@
+---
+title: Background process
+description: Start a long-running command with commands.run, wait for exit or attach to streams, then tear down the sandbox.
+---
+
+# Example: Background process
+
+You use this pattern when a command **outlasts** a single synchronous **`exec`** HTTP request: a dev server, a queue worker, a migration script that prints progress for minutes. You start the process with **`commands.run`**, you **list**, **wait**, **connect**, or **kill** as your orchestration requires.
+
+## What you accomplish
+
+You receive a **PID** from **`run`**. You poll or block with **`wait`**. You optionally **attach** to stdout/stderr with **`connect`**. You **kill** stuck jobs. You remove the sandbox when nothing else needs that disk.
+
+## Concepts you use
+
+- **Positional arguments (TypeScript):** `run(command, env?, cwd?, timeout?)`: not an options object.
+- **Python responses:** Many command APIs return **`VoidRunResponse`**; you read **`run_result.data.pid`** (field names match generated models).
+- **REST mapping:** Endpoints live under **`/sandboxes/{id}/commands/`**: see [Background commands](/core-concepts/background-commands).
+
+## Prerequisites
+
+You completed [Examples overview](/examples/overview).
+
+## Step 1: Create sandbox and start a background job
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+const sandbox = await vr.createSandbox({ mem: 1024, name: 'bg-demo' });
+
+const run = await sandbox.commands.run(
+  'bash -c "for i in 1 2 3; do echo tick $i; sleep 1; done; echo done > /tmp/bg.done"',
+  undefined,
+  '/tmp',
+  0,
+);
+
+console.log('pid', run.pid);
+```
+
+```python Python
+from voidrun import VoidRun
+
+vr = VoidRun()
+sandbox = vr.create_sandbox(mem=1024, name="bg-demo")
+
+run = sandbox.commands.run(
+    'bash -c "for i in 1 2 3; do echo tick $i; sleep 1; done; echo done > /tmp/bg.done"',
+    None,
+    "/tmp",
+    0,
+)
+
+print("pid", run.data.pid)
+```
+</CodeGroup>
+
+## Step 2: Wait until the process exits
+
+You block until the PID finishes (or errors). You read **`exitCode` / `exit_code`**.
+
+<CodeGroup>
+```typescript TypeScript
+const done = await sandbox.commands.wait(run.pid);
+console.log('exit', done.exitCode);
+```
+
+```python Python
+done = sandbox.commands.wait(run.data.pid)
+print("exit", done.data.exit_code)
+```
+</CodeGroup>
+
+## Step 3: (Optional) Attach and stream until exit
+
+You call **`connect`** when you want **stdout/stderr** as the process runs. In both official SDKs, **`connect`** reads the **SSE stream until it closes** (you typically **do not** also **`wait`** on the same PID unless your SDK explicitly supports overlapping attach semantics).
+
+<CodeGroup>
+```typescript TypeScript
+const run2 = await sandbox.commands.run('sleep 3 && echo slow-done', undefined, '/tmp', 0);
+
+await sandbox.commands.connect(run2.pid, {
+  onStdout: (d) => console.log('[bg]', d),
+  onStderr: (d) => console.error('[bg err]', d),
+  onExit: (payload) => console.log('exited', payload),
+});
+```
+
+```python Python
+run2 = sandbox.commands.run("sleep 3 && echo slow-done", None, "/tmp", 0)
+
+sandbox.commands.connect(
+    run2.data.pid,
+    on_stdout=lambda d: print("[bg]", d),
+    on_stderr=lambda d: print("[bg err]", d),
+    on_exit=lambda r: print("exited", r),
+)
+```
+</CodeGroup>
+
+## Step 4: (Optional) Kill a stuck PID
+
+<CodeGroup>
+```typescript TypeScript
+const run3 = await sandbox.commands.run('sleep 9999', undefined, '/tmp', 0);
+await sandbox.commands.kill(run3.pid);
+```
+
+```python Python
+run3 = sandbox.commands.run("sleep 9999", None, "/tmp", 0)
+sandbox.commands.kill(run3.data.pid)
+```
+</CodeGroup>
+
+## Step 5: List running processes (debug)
+
+<CodeGroup>
+```typescript TypeScript
+const { processes } = await sandbox.commands.list();
+console.log(processes.map((p) => ({ pid: p.pid, cmd: p.command })));
+```
+
+```python Python
+lst = sandbox.commands.list()
+print(lst.data)
+```
+</CodeGroup>
+
+## Step 6: Clean up
+
+<CodeGroup>
+```typescript TypeScript
+await sandbox.remove();
+```
+
+```python Python
+sandbox.remove()
+```
+</CodeGroup>
+
+## Practices you should follow
+
+- You set a **non-zero timeout** on **`run`** when you want the platform to stop runaway processes automatically (semantics depend on server; **`0`** often means no limit: confirm in OpenAPI).
+- You **await `wait`** (or handle errors) before you **`remove`** the sandbox if you care about exit status.
+- You do not confuse **`exec`** (one-shot) with **`commands.run`** (background).
+
+## Related guides
+
+<CardGroup cols={2}>
+  <Card title="Background commands" icon="terminal" href="/core-concepts/background-commands">
+    REST paths and concepts
+  </Card>
+  <Card title="Code execution" icon="code" href="/core-concepts/code-execution">
+    One-shot exec and streaming
+  </Card>
+</CardGroup>

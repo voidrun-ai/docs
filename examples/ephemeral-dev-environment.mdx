@@ -1,0 +1,187 @@
+---
+title: Ephemeral dev environment
+description: Spin up a throwaway sandbox with the code or max image, install tools, and run commands without touching your laptop.
+---
+
+# Example: Ephemeral dev environment
+
+You use this pattern when you want a **clean Linux workspace** for a short task: try a package, run a formatter, compile a snippet, or reproduce a bug. You create a sandbox with a **system image** (**`code`** or **`max`**: see [System images](/environments/custom-images#system-images)), you run **`exec`** with **`cwd`** and **`env`**, you throw the VM away when you finish.
+
+## What you accomplish
+
+You get a VM from the **VoidRun catalog**. The **`code`** image includes **Python and Node** on a thin Alpine base (fast startup). The **`max`** image is **Debian-based** when you need broader `apt` compatibility. You install extra tools inside the VM. You never pollute your local machine with one-off global installs.
+
+## Concepts you use
+
+- **`image`:** You set **`code`**, **`max`**, or **`docker`** (only when you need Docker in-VM). You list entries with **`GET /images`** when you are unsure.
+- **`envVars` / `env_vars`:** You inject **`PIP_`**, **`NODE_`**, or project variables so installs behave predictably.
+- **`exec` options:** You combine **`command`**, **`cwd`**, **`timeout`**, and **`env`** per step.
+
+## Prerequisites
+
+You completed [Examples overview](/examples/overview).
+
+## Step 1: Create a workspace on the `code` image
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+
+const sandbox = await vr.createSandbox({
+  name: 'dev-scratch',
+  image: 'code',
+  mem: 2048,
+  cpu: 2,
+  envVars: {
+    PIP_DISABLE_PIP_VERSION_CHECK: '1',
+    PYTHONDONTWRITEBYTECODE: '1',
+  },
+});
+```
+
+```python Python
+from voidrun import VoidRun
+
+vr = VoidRun()
+sandbox = vr.create_sandbox(
+    name="dev-scratch",
+    image="code",
+    mem=2048,
+    cpu=2,
+    env_vars={
+        "PIP_DISABLE_PIP_VERSION_CHECK": "1",
+        "PYTHONDONTWRITEBYTECODE": "1",
+    },
+)
+```
+</CodeGroup>
+
+## Step 2: Python tooling (venv + pip)
+
+You create a folder, you use **`python3`**, you install packages into a venv when you want isolation.
+
+<CodeGroup>
+```typescript TypeScript
+await sandbox.exec({
+  command: 'mkdir -p /work && python3 -m venv /work/.venv',
+  timeout: 120,
+});
+
+await sandbox.exec({
+  command: '. /work/.venv/bin/activate && pip install ruff && ruff --version',
+  cwd: '/work',
+  timeout: 300,
+});
+
+const ver = await sandbox.exec({
+  command: '. /work/.venv/bin/activate && ruff --version',
+  cwd: '/work',
+  timeout: 60,
+});
+
+console.log(ver.data?.stdout?.trim());
+```
+
+```python Python
+sandbox.exec("mkdir -p /work && python3 -m venv /work/.venv", timeout=120)
+
+sandbox.exec(
+    ". /work/.venv/bin/activate && pip install ruff && ruff --version",
+    cwd="/work",
+    timeout=300,
+)
+
+ver = sandbox.exec(
+    ". /work/.venv/bin/activate && ruff --version",
+    cwd="/work",
+    timeout=60,
+)
+
+print((ver.data.stdout or "").strip())
+```
+</CodeGroup>
+
+<Note>
+On Alpine-based images, **`source`** may not exist; use **`. /path/to/activate`** (POSIX dot) as above. If a command fails, switch to **`max`** for a Debian-style shell or install **`bash`** in the VM.
+</Note>
+
+## Step 3: Node tooling on the same `code` image
+
+You do **not** change the image: **`code`** already includes Node. You run **`npm`** or **`npx`** in **`/work`**.
+
+<CodeGroup>
+```typescript TypeScript
+const nodeSandbox = await vr.createSandbox({
+  name: 'dev-node-scratch',
+  image: 'code',
+  mem: 2048,
+});
+
+const n = await nodeSandbox.exec({
+  command: 'mkdir -p /work && cd /work && npm init -y && npm install prettier && npx prettier --version',
+  timeout: 300,
+});
+console.log(n.data?.stdout);
+
+await nodeSandbox.remove();
+```
+
+```python Python
+node_sandbox = vr.create_sandbox(name="dev-node-scratch", image="code", mem=2048)
+n = node_sandbox.exec(
+    "mkdir -p /work && cd /work && npm init -y && npm install prettier && npx prettier --version",
+    timeout=300,
+)
+print(n.data.stdout)
+node_sandbox.remove()
+```
+</CodeGroup>
+
+## Step 4: Optional: Debian-style box with `max`
+
+You choose **`max`** when you prefer **Debian** and typical **`apt`** / **`bash`** workflows over the **`code`** image.
+
+<CodeGroup>
+```typescript TypeScript
+const deb = await vr.createSandbox({ name: 'dev-max', image: 'max', mem: 4096 });
+await deb.exec({ command: 'sudo apt-get update && sudo apt-get install -y jq && jq --version' });
+await deb.remove();
+```
+
+```python Python
+deb = vr.create_sandbox(name="dev-max", image="max", mem=4096)
+deb.exec("sudo apt-get update && sudo apt-get install -y jq && jq --version")
+deb.remove()
+```
+</CodeGroup>
+
+## Step 5: Remove the sandbox
+
+<CodeGroup>
+```typescript TypeScript
+await sandbox.remove();
+```
+
+```python Python
+sandbox.remove()
+```
+</CodeGroup>
+
+## Practices you should follow
+
+- You pick **memory** large enough for `npm ci` or heavy wheels; you raise **`mem`** if installs OOM.
+- You keep **secrets** out of shell history; prefer **`env`** for tokens.
+- You read [Package management](/environments/package-management) for **`apt`**, **`pip`**, and **`npm`** patterns.
+
+## Related guides
+
+<CardGroup cols={2}>
+  <Card title="System images" icon="container-storage" href="/environments/custom-images#system-images">
+    **code**, **max**, **docker**
+  </Card>
+  <Card title="Multi-step job" icon="terminal" href="/examples/multi-step-job">
+    Chain commands in one sandbox
+  </Card>
+</CardGroup>

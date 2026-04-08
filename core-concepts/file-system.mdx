@@ -55,7 +55,7 @@ Write text content directly to a file:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.createSandbox({ cpu: 2, mem: 2048 });
 
 // Upload string content to a file
@@ -76,9 +76,7 @@ import json
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.create(cpu=2, mem=2048)
-sandbox = resp.data
-
+sandbox = vr.create_sandbox(cpu=2, mem=2048)
 # Upload string content to a file
 sandbox.fs.upload_file("/app/config.json", json.dumps({
     "name": "VoidRun",
@@ -88,7 +86,7 @@ sandbox.fs.upload_file("/app/config.json", json.dumps({
 
 print("File uploaded successfully")
 
-sandbox.delete()
+sandbox.remove()
 ```
 
 ```bash CLI
@@ -101,8 +99,8 @@ voidrun fs upload <sandbox-id> --source ./config.json --dest /app/config.json
 
 ```bash cURL
 # Upload file content
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/upload?path=/app/config.json" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/upload?path=/app/config.json" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name": "VoidRun", "version": "1.0.0"}'
 ```
@@ -117,7 +115,7 @@ Upload binary data (images, archives, etc.):
 import { VoidRun } from '@voidrun/sdk';
 import * as fs from 'fs';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Upload from local file path (Node.js, Deno, Bun)
@@ -141,9 +139,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Upload binary content
 binary_data = b'\x89PNG\r\n\x1a\n'  # PNG header
 sandbox.fs.upload_file("/remote/data.bin", binary_data)
@@ -160,8 +156,8 @@ voidrun fs upload <sandbox-id> --source ./image.png --dest /remote/image.png
 
 ```bash cURL
 # Upload binary file with multipart
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/upload?path=/remote/image.png" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/upload?path=/remote/image.png" \
+  -H "X-API-Key: $VR_API_KEY" \
   -F "file=@./image.png"
 ```
 </CodeGroup>
@@ -175,7 +171,7 @@ For large files, use streaming to avoid memory issues:
 import { VoidRun } from '@voidrun/sdk';
 import * as fs from 'fs';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Stream large file from local filesystem
@@ -200,9 +196,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Upload large file (handled efficiently)
 with open("./large-dataset.tar.gz", "rb") as f:
     sandbox.fs.upload_file("/remote/large-dataset.tar.gz", f.read())
@@ -215,8 +209,8 @@ voidrun fs upload <sandbox-id> --source ./large-dataset.tar.gz --dest /remote/la
 
 ```bash cURL
 # Upload large file
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/upload?path=/remote/large.tar.gz" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/upload?path=/remote/large.tar.gz" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/octet-stream" \
   --data-binary @./large-dataset.tar.gz
 ```
@@ -232,7 +226,7 @@ Retrieve file contents from the sandbox:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Download file as Buffer
@@ -250,9 +244,7 @@ import json
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Download file as bytes
 content = sandbox.fs.download_file("/app/output.json")
 print("File content:", content.decode("utf-8"))
@@ -272,8 +264,8 @@ cat ./output.json
 
 ```bash cURL
 # Download file
-curl -X GET "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/download?path=/app/output.json" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/download?path=/app/output.json" \
+  -H "X-API-Key: $VR_API_KEY" \
   -o output.json
 ```
 </CodeGroup>
@@ -287,7 +279,7 @@ For large files, use streaming to process data incrementally:
 import { VoidRun } from '@voidrun/sdk';
 import * as fs from 'fs';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Get streaming ReadableStream
@@ -321,9 +313,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Download file (for large files, consider processing in chunks)
 content = sandbox.fs.download_file("/remote/large-log.txt")
 
@@ -341,8 +331,8 @@ voidrun fs download <sandbox-id> --source /remote/large-log.txt --dest ./large-l
 
 ```bash cURL
 # Download large file
-curl -X GET "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/download?path=/remote/large-log.txt" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/download?path=/remote/large-log.txt" \
+  -H "X-API-Key: $VR_API_KEY" \
   -o large-log.txt
 ```
 </CodeGroup>
@@ -357,7 +347,7 @@ List files in a directory:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // List files in directory
@@ -372,9 +362,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # List files in directory
 result = sandbox.fs.list_files("/app")
 
@@ -388,8 +376,8 @@ voidrun fs list <sandbox-id> --path /app
 ```
 
 ```bash cURL
-curl -X GET "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/list?path=/app" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/list?path=/app" \
+  -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
 
@@ -401,7 +389,7 @@ Create empty files and directories:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Create empty file
@@ -416,9 +404,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Create empty file
 sandbox.fs.create_file("/app/newfile.txt")
 
@@ -436,12 +422,12 @@ voidrun fs mkdir <sandbox-id> --path /app/data/logs
 
 ```bash cURL
 # Create file
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/create-file?path=/app/newfile.txt" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/create-file?path=/app/newfile.txt" \
+  -H "X-API-Key: $VR_API_KEY"
 
 # Create directory
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/create-directory?path=/app/data/logs" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/create-directory?path=/app/data/logs" \
+  -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
 
@@ -453,7 +439,7 @@ Copy or move files within the sandbox:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Copy file
@@ -468,9 +454,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Copy file
 sandbox.fs.copy_file("/app/source.txt", "/app/destination.txt")
 
@@ -488,14 +472,14 @@ voidrun fs move <sandbox-id> --from /app/old-name.txt --to /app/new-name.txt
 
 ```bash cURL
 # Copy file
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/copy" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/copy" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"from": "/app/source.txt", "to": "/app/destination.txt"}'
 
 # Move file
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/move" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/move" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"from": "/app/old-name.txt", "to": "/app/new-name.txt"}'
 ```
@@ -509,7 +493,7 @@ Remove files and directories:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Delete a file
@@ -521,9 +505,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Delete a file
 sandbox.fs.delete_file("/app/obsolete.txt")
 ```
@@ -534,8 +516,8 @@ voidrun fs delete <sandbox-id> --path /app/obsolete.txt
 ```
 
 ```bash cURL
-curl -X DELETE "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/delete?path=/app/obsolete.txt" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X DELETE "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/delete?path=/app/obsolete.txt" \
+  -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
 
@@ -547,7 +529,7 @@ Retrieve file metadata and statistics:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Get file stats
@@ -561,9 +543,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Get file stats
 result = sandbox.fs.stat_file("/app/data.json")
 print("File info:", result.data)
@@ -576,8 +556,8 @@ voidrun fs stat <sandbox-id> --path /app/data.json
 ```
 
 ```bash cURL
-curl -X GET "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/stat?path=/app/data.json" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/stat?path=/app/data.json" \
+  -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
 
@@ -589,7 +569,7 @@ Find files matching a pattern:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Search for Python files
@@ -603,9 +583,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Search for Python files
 result = sandbox.fs.search_files("/app", "*.py")
 print("Found files:", result.data)
@@ -618,8 +596,8 @@ voidrun fs search <sandbox-id> --path /app --pattern "*.py"
 ```
 
 ```bash cURL
-curl -X GET "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/search?path=/app&pattern=*.py" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/search?path=/app&pattern=*.py" \
+  -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
 
@@ -633,7 +611,7 @@ Create archives of files and directories:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Compress directory to tar.gz
@@ -649,9 +627,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Compress directory to tar.gz
 result = sandbox.fs.compress_file("/app/data", format="tar.gz")
 print("Archive created:", result.data.get("archivePath", "/app/data.tar.gz"))
@@ -665,8 +641,8 @@ voidrun fs compress <sandbox-id> --path /app/data --format tar.gz
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/compress" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/compress" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"path": "/app/data", "format": "tar.gz"}'
 ```
@@ -680,7 +656,7 @@ Extract compressed archives:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Extract archive
@@ -695,9 +671,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Extract archive
 sandbox.fs.extract_archive(
     "/app/data.tar.gz",
@@ -711,8 +685,8 @@ voidrun fs extract <sandbox-id> --archive /app/data.tar.gz --dest /app/extracted
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/extract" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/extract" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"archive": "/app/data.tar.gz", "dest": "/app/extracted"}'
 ```
@@ -726,7 +700,7 @@ Monitor file changes in real-time:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Watch for file changes
@@ -751,9 +725,7 @@ import asyncio
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 async def watch_files():
     watcher = await sandbox.fs.watch(
         "/app",
@@ -777,8 +749,10 @@ voidrun fs watch <sandbox-id> --path /app --recursive
 ```
 
 ```bash cURL
-# File watching uses WebSocket
-# Connect to: wss://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/watch
+# File watching: start a session (HTTP), then open a WebSocket to the stream URL.
+# 1) POST .../files/watch with JSON body {"path":"/app","recursive":true}
+# 2) Connect (TLS): wss://platform.void-run.com/api/sandboxes/<sandbox-id>/files/watch/<session-id>/stream
+#    Use the sessionId from the start-watch response; pass X-API-Key when the server expects it on upgrade.
 ```
 </CodeGroup>
 
@@ -791,7 +765,7 @@ Here's a complete example showing file operations in a data processing workflow:
 import { VoidRun } from '@voidrun/sdk';
 
 async function processData() {
-  const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+  const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
   
   // Create sandbox
   const sandbox = await vr.createSandbox({
@@ -875,13 +849,11 @@ def process_data():
     vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
     
     # Create sandbox
-    resp = vr.sandboxes.create(
+    sandbox = vr.create_sandbox(
         name="data-processor",
         cpu=2,
         mem=4096
     )
-    sandbox = resp.data
-
     try:
         # 1. Upload input data
         input_data = json.dumps({
@@ -924,7 +896,7 @@ print(f"Processed {output['count']} records")
 
         # 3. Run processing
         result = sandbox.exec("python3 /scripts/process.py")
-        print("Processing:", result.data.data.stdout)
+        print("Processing:", result.data.stdout)
 
         # 4. Download results
         output_data = sandbox.fs.download_file("/data/output.json")
@@ -939,7 +911,7 @@ print(f"Processed {output['count']} records")
         return results
 
     finally:
-        sandbox.delete()
+        sandbox.remove()
 
 if __name__ == "__main__":
     process_data()
@@ -974,31 +946,31 @@ voidrun delete $SANDBOX_ID
 # Complete workflow via cURL
 
 # 1. Create sandbox
-SANDBOX_ID=$(curl -s -X POST "https://api.voidrun.com/v1/sandboxes" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+SANDBOX_ID=$(curl -s -X POST "https://platform.void-run.com/api/sandboxes" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name":"data-processor","cpu":2,"mem":4096}' | jq -r '.data.id')
 
 # 2. Upload input data
-curl -X POST "https://api.voidrun.com/v1/sandboxes/$SANDBOX_ID/fs/upload?path=/data/input.json" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/$SANDBOX_ID/fs/upload?path=/data/input.json" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"records":[{"id":1,"value":100},{"id":2,"value":200}]}'
 
 # 3. Run processing
-curl -X POST "https://api.voidrun.com/v1/sandboxes/$SANDBOX_ID/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/$SANDBOX_ID/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "python3 -c \"import json; print(\\\"Done\\\")\""}'
 
 # 4. Download results
-curl -X GET "https://api.voidrun.com/v1/sandboxes/$SANDBOX_ID/fs/download?path=/data/output.json" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X GET "https://platform.void-run.com/api/sandboxes/$SANDBOX_ID/fs/download?path=/data/output.json" \
+  -H "X-API-Key: $VR_API_KEY" \
   -o output.json
 
 # 5. Clean up
-curl -X DELETE "https://api.voidrun.com/v1/sandboxes/$SANDBOX_ID" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X DELETE "https://platform.void-run.com/api/sandboxes/$SANDBOX_ID" \
+  -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
 

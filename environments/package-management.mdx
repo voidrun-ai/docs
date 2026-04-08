@@ -7,6 +7,10 @@ description: Install Ubuntu packages, Python packages, and Node.js modules dynam
 
 VoidRun allows you to install packages dynamically at runtime. Whether you need system-level dependencies, Python libraries, or Node.js modules, you can install them on-demand inside your sandbox.
 
+<Note>
+Sandbox examples on this page use the **`code`** [system image](/environments/custom-images#system-images) unless noted. **`code`** is Alpine-based; **`apt-get`** sections match **`max`** (Debian) or other Debian-style images: adjust commands if you stay on **`code`** (use **`apk`** on Alpine, or switch the sandbox to **`max`**).
+</Note>
+
 ## Dynamic Package Management
 
 Developers and AI agents can install packages at runtime without pre-baking them into custom images. This provides flexibility for:
@@ -36,7 +40,7 @@ Install OS-level dependencies using `apt-get`:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.createSandbox({ cpu: 2, mem: 2048 });
 
 // Update package lists
@@ -62,9 +66,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.create(cpu=2, mem=2048)
-sandbox = resp.data
-
+sandbox = vr.create_sandbox(cpu=2, mem=2048)
 # Update package lists
 sandbox.exec("apt-get update")
 
@@ -74,13 +76,13 @@ result = sandbox.exec(
     timeout=120  # May take a while
 )
 
-print("Install output:", result.data.data.stdout)
+print("Install output:", result.data.stdout)
 
 # Verify installation
 verify = sandbox.exec("ffmpeg -version")
-print("FFmpeg version:", verify.data.data.stdout)
+print("FFmpeg version:", verify.data.stdout)
 
-sandbox.delete()
+sandbox.remove()
 ```
 
 ```bash CLI
@@ -99,14 +101,14 @@ voidrun exec <sandbox-id> --command "ffmpeg -version"
 
 ```bash cURL
 # Update package lists
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "apt-get update"}'
 
 # Install system packages
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "apt-get install -y ffmpeg git curl", "timeout": 120}'
 ```
@@ -131,9 +133,9 @@ Install Python libraries using `pip`:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.createSandbox({ 
-  templateId: 'python',
+  image: 'code',
   cpu: 2, 
   mem: 4096 
 });
@@ -170,20 +172,18 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.create(
-    template_id="python",
+sandbox = vr.create_sandbox(
+    image="code",
     cpu=2,
     mem=4096
 )
-sandbox = resp.data
-
 # Install Python packages
 result = sandbox.exec(
     "pip install pandas numpy scikit-learn matplotlib",
     timeout=120
 )
 
-print("Install output:", result.data.data.stdout)
+print("Install output:", result.data.stdout)
 
 # Use the installed packages
 code_result = sandbox.run_code("""
@@ -199,14 +199,14 @@ df = pd.DataFrame({
 print(df.describe())
 """, language="python")
 
-print("Output:", code_result.data.stdout)
+print("Output:", code_result.stdout)
 
-sandbox.delete()
+sandbox.remove()
 ```
 
 ```bash CLI
 # Create Python sandbox
-voidrun create --template python --cpu 2 --mem 4096
+voidrun create --template code --cpu 2 --mem 4096
 
 # Install Python packages
 voidrun exec <sandbox-id> --command "pip install pandas numpy scikit-learn matplotlib" --timeout 120
@@ -217,8 +217,8 @@ voidrun exec <sandbox-id> --command "python3 -c 'import pandas; print(pandas.__v
 
 ```bash cURL
 # Install Python packages
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "pip install pandas numpy scikit-learn", "timeout": 120}'
 ```
@@ -230,7 +230,7 @@ curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Install specific version
@@ -249,9 +249,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Install specific version
 sandbox.exec("pip install tensorflow==2.15.0")
 
@@ -265,8 +263,8 @@ voidrun exec <sandbox-id> --command 'pip install "numpy>=1.20,<2.0"'
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "pip install tensorflow==2.15.0"}'
 ```
@@ -280,7 +278,7 @@ Install from a requirements file:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Upload requirements.txt
@@ -305,9 +303,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Upload requirements.txt
 requirements = """
 pandas==2.0.0
@@ -335,16 +331,16 @@ voidrun exec <sandbox-id> --command "pip install -r /app/requirements.txt" --tim
 
 ```bash cURL
 # Upload requirements.txt
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/upload?path=/app/requirements.txt" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/upload?path=/app/requirements.txt" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: text/plain" \
   -d 'pandas==2.0.0
 numpy>=1.20
 requests'
 
 # Install from requirements.txt
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "pip install -r /app/requirements.txt", "timeout": 180}'
 ```
@@ -358,9 +354,9 @@ Install JavaScript/TypeScript modules using `npm` or `yarn`:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.createSandbox({ 
-  templateId: 'node',
+  image: 'code',
   cpu: 2, 
   mem: 2048 
 });
@@ -396,13 +392,11 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.create(
-    template_id="node",
+sandbox = vr.create_sandbox(
+    image="code",
     cpu=2,
     mem=2048
 )
-sandbox = resp.data
-
 # Initialize npm project
 sandbox.exec("mkdir -p /app && cd /app && npm init -y")
 
@@ -412,7 +406,7 @@ result = sandbox.exec(
     timeout=120
 )
 
-print("Install output:", result.data.data.stdout)
+print("Install output:", result.data.stdout)
 
 # Use the installed packages
 code_result = sandbox.run_code("""
@@ -424,14 +418,14 @@ const numbers = [1, 2, 3, 4, 5];
 console.log('Sum:', _.sum(numbers));
 """, language="javascript")
 
-print("Output:", code_result.data.stdout)
+print("Output:", code_result.stdout)
 
-sandbox.delete()
+sandbox.remove()
 ```
 
 ```bash CLI
 # Create Node.js sandbox
-voidrun create --template node --cpu 2 --mem 2048
+voidrun create --template code --cpu 2 --mem 2048
 
 # Initialize npm project
 voidrun exec <sandbox-id> --command "mkdir -p /app && cd /app && npm init -y"
@@ -442,14 +436,14 @@ voidrun exec <sandbox-id> --command "cd /app && npm install express axios lodash
 
 ```bash cURL
 # Initialize npm project
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "mkdir -p /app && cd /app && npm init -y"}'
 
 # Install npm packages
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "cd /app && npm install express axios lodash", "timeout": 120}'
 ```
@@ -463,7 +457,7 @@ Install from package.json:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Upload package.json
@@ -492,9 +486,7 @@ import json
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Upload package.json
 package_json = {
     "name": "my-app",
@@ -525,14 +517,14 @@ voidrun exec <sandbox-id> --command "cd /app && npm install" --timeout 120
 
 ```bash cURL
 # Upload package.json
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/upload?path=/app/package.json" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/upload?path=/app/package.json" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name":"my-app","dependencies":{"express":"^4.18.0"}}'
 
 # Install dependencies
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "cd /app && npm install", "timeout": 120}'
 ```
@@ -579,9 +571,9 @@ For AI agents that need to install packages dynamically:
 import { VoidRun } from '@voidrun/sdk';
 
 async function aiAgentWithDeps(userRequest: string) {
-  const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+  const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
   const sandbox = await vr.createSandbox({ 
-    templateId: 'python',
+    image: 'code',
     cpu: 4, 
     mem: 4096 
   });
@@ -620,13 +612,11 @@ import os
 
 async def ai_agent_with_deps(user_request: str):
     vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-    resp = vr.sandboxes.create(
-        template_id="python",
+    sandbox = vr.create_sandbox(
+        image="code",
         cpu=4,
         mem=4096
     )
-    sandbox = resp.data
-
     try:
         # AI decides what packages are needed
         required_packages = ["requests", "beautifulsoup4"]
@@ -650,12 +640,12 @@ print(soup.title.string)
 
         return result.data.stdout
     finally:
-        sandbox.delete()
+        sandbox.remove()
 ```
 
 ```bash CLI
 # AI agent workflow
-voidrun create --template python --cpu 4 --mem 4096
+voidrun create --template code --cpu 4 --mem 4096
 
 # Install packages
 voidrun exec <sandbox-id> --command "pip install requests beautifulsoup4"
@@ -666,14 +656,14 @@ voidrun exec <sandbox-id> --command "python3 -c 'import requests; print(requests
 
 ```bash cURL
 # Create sandbox
-curl -X POST "https://api.voidrun.com/v1/sandboxes" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"templateId": "python", "cpu": 4, "mem": 4096}'
+  -d '{"image": "code", "cpu": 4, "mem": 4096}'
 
 # Install packages
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "pip install requests beautifulsoup4"}'
 ```

@@ -1,0 +1,152 @@
+---
+title: AI code interpreter
+description: Run LLM-generated Python, JavaScript, or shell snippets in a sandbox, read CodeExecutionResult, and tear down cleanly.
+---
+
+# Example: AI code interpreter
+
+You build this pattern when your product **executes model-generated code** and you need reliable stdout, stderr, success flags, and optional parsed **`results`**: without hosting your own container runtime.
+
+## What you accomplish
+
+You create a sandbox, run **interpreter** code (not raw shell injection) through **`runCode` / `run_code`**, inspect **`CodeExecutionResult`**, and **remove** the sandbox when the session ends. You keep timeouts tight so a bad generation cannot hang your workers.
+
+## Concepts you use
+
+- **Interpreter vs `exec`:** The interpreter path returns **`CodeExecutionResult`** with **`stdout`**, **`stderr`**, **`success`**, **`exitCode` / `exit_code`**, **`results`**, **`logs`** at the **top level** (no extra `.data` wrapper). Shell **`exec`** returns a different shape; see [Code execution](/core-concepts/code-execution).
+- **Languages:** You typically pass `python`, `javascript`, `bash`, or `sh` (confirm what your deployment allows).
+- **Timeout:** You set **`timeout`** in seconds on the interpreter call so runaway loops stop.
+
+## Prerequisites
+
+You completed [Examples overview](/examples/overview) (API key, base URL, SDK install).
+
+## Step 1: Create the client and sandbox
+
+You instantiate **`VoidRun`** once per process (or per request if you prefer strict isolation at the client layer). You create a sandbox with enough **CPU** and **memory** for typical snippets.
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+
+const sandbox = await vr.createSandbox({
+  name: `interp-${Date.now()}`,
+  cpu: 2,
+  mem: 2048,
+  image: 'code',
+});
+```
+
+```python Python
+from voidrun import VoidRun
+
+vr = VoidRun()
+sandbox = vr.create_sandbox(
+    name=f"interp-{int(__import__('time').time() * 1000)}",
+    cpu=2,
+    mem=2048,
+    image="code",
+)
+```
+</CodeGroup>
+
+## Step 2: Run interpreter code
+
+You pass **source text** and a **`language`**. You treat **`success`** as your primary pass/fail signal; you still log **`stderr`** when **`success`** is false.
+
+<CodeGroup>
+```typescript TypeScript
+const userFacingCode = `
+import json
+result = {"sum": sum(range(1, 101))}
+print(json.dumps(result))
+`;
+
+const result = await sandbox.runCode(userFacingCode, {
+  language: 'python',
+  timeout: 30,
+});
+
+if (result.success) {
+  console.log('stdout:', result.stdout.trim());
+  console.log('parsed results field (if any):', result.results);
+} else {
+  console.error('interpreter failed');
+  console.error('stderr:', result.stderr);
+  console.error('exitCode:', result.exitCode);
+}
+```
+
+```python Python
+user_facing_code = """
+import json
+result = {"sum": sum(range(1, 101))}
+print(json.dumps(result))
+"""
+
+result = sandbox.run_code(
+    user_facing_code,
+    language="python",
+    timeout=30,
+)
+
+if result.success:
+    print("stdout:", result.stdout.strip())
+    print("parsed results field (if any):", result.results)
+else:
+    print("interpreter failed")
+    print("stderr:", result.stderr)
+    print("exit_code:", result.exit_code)
+```
+</CodeGroup>
+
+## Step 3: Stream output (optional, TypeScript)
+
+You attach **`onStdout`** and **`onStderr`** on **`runCode`** when you want incremental logs while the interpreter runs. You still await the promise; the final object remains a **`CodeExecutionResult`**.
+
+```typescript
+await sandbox.runCode('for i in range(3):\n    print(i)', {
+  language: 'python',
+  timeout: 60,
+  onStdout: (chunk) => process.stdout.write(`[out] ${chunk}`),
+  onStderr: (chunk) => process.stderr.write(`[err] ${chunk}`),
+});
+```
+
+<Note>
+The Python **`run_code`** path builds a single **`exec`** under the hood and returns one **`CodeExecutionResult`** when the run finishes. When you need **line-by-line** output in Python, you use **`exec_stream`** on a normal shell command instead, or you consult the current **`voidrun`** README for interpreter streaming support in your version.
+</Note>
+
+## Step 4: Tear down
+
+You **always** remove the sandbox when you finish the user session (unless you maintain a pool: then you return the slot to the pool per your lifecycle rules).
+
+<CodeGroup>
+```typescript TypeScript
+await sandbox.remove();
+```
+
+```python Python
+sandbox.remove()
+```
+</CodeGroup>
+
+## Practices you should follow
+
+- You **validate** language and maximum code length **before** you call the API (see [Untrusted user code](/examples/untrusted-user-code)).
+- You use **one sandbox per untrusted user turn** unless you operate a hardened pool with strict hygiene.
+- You parse **`stdout`** defensively; models sometimes print extra lines: you often take the **last JSON line** or use **`results`** when the platform fills it.
+- You log **`exitCode` / `exit_code`** and **`stderr`** together when you debug failed generations.
+
+## Related guides
+
+<CardGroup cols={2}>
+  <Card title="Code execution" icon="terminal" href="/core-concepts/code-execution">
+    Interpreter vs exec and response shapes
+  </Card>
+  <Card title="Untrusted user code" icon="shield" href="/examples/untrusted-user-code">
+    Validation and isolation checklist
+  </Card>
+</CardGroup>

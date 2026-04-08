@@ -1,0 +1,178 @@
+---
+title: Untrusted user code
+description: Isolate end-user or LLM-generated code with validation, timeouts, fresh sandboxes, and platform policy, not string concatenation into shells.
+---
+
+# Example: Untrusted user code
+
+You implement this pattern when **someone else’s code** runs on your infrastructure: end users paste snippets, or an agent emits code you did not write. You **never** trust the text. You **isolate** it in a MicroVM, you **bound** CPU, memory, and time, and you **validate** before you execute.
+
+## What you accomplish
+
+You reject oversized or disallowed submissions **before** you touch the API. You run each accepted submission in a **dedicated sandbox** (or a strictly managed pool). You always set **timeouts**. You avoid building shell commands by concatenating user input.
+
+## Threats you plan for
+
+- **Injection:** User code that escapes interpreters or shells.
+- **Resource exhaustion:** Infinite loops, huge memory use, fork bombs.
+- **Data exfiltration:** Code that reads environment secrets or calls the network (you combine this with [Internet access](/networking/internet-access) policy).
+- **Persistence:** User code that writes malicious artifacts; you remove sandboxes when done.
+
+## Prerequisites
+
+You completed [Examples overview](/examples/overview). You read [AI code interpreter](/examples/ai-code-interpreter) if you use **`runCode` / `run_code`**.
+
+## Step 1: Define policy constants in your service
+
+You centralize limits so every code path shares the same rules.
+
+<CodeGroup>
+```typescript TypeScript
+const ALLOWED_LANGUAGES = new Set(['python', 'javascript', 'bash']);
+const MAX_CODE_BYTES = 48 * 1024; // 48 KiB
+const INTERPRETER_TIMEOUT_SEC = 15;
+const SANDBOX_CPU = 2;
+const SANDBOX_MEM_MB = 2048;
+
+function assertAcceptable(code: string, language: string) {
+  const bytes = Buffer.byteLength(code, 'utf8');
+  if (!ALLOWED_LANGUAGES.has(language)) throw new Error('language_not_allowed');
+  if (bytes > MAX_CODE_BYTES) throw new Error('code_too_large');
+  if (bytes === 0) throw new Error('code_empty');
+}
+```
+
+```python Python
+ALLOWED_LANGUAGES = frozenset({"python", "javascript", "bash"})
+MAX_CODE_BYTES = 48 * 1024
+INTERPRETER_TIMEOUT_SEC = 15
+SANDBOX_CPU = 2
+SANDBOX_MEM_MB = 2048
+
+
+def assert_acceptable(code: str, language: str) -> None:
+    raw = code.encode("utf-8")
+    if language not in ALLOWED_LANGUAGES:
+        raise ValueError("language_not_allowed")
+    if len(raw) > MAX_CODE_BYTES:
+        raise ValueError("code_too_large")
+    if len(raw) == 0:
+        raise ValueError("code_empty")
+```
+</CodeGroup>
+
+## Step 2: Create one sandbox per untrusted run
+
+You do **not** reuse the same sandbox for unrelated users without a documented trust boundary. For the simplest model, you create and remove per request.
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+
+export async function runUntrustedSnippet(code: string, language: string) {
+  assertAcceptable(code, language);
+
+  const sandbox = await vr.createSandbox({
+    cpu: SANDBOX_CPU,
+    mem: SANDBOX_MEM_MB,
+    image: 'code',
+  });
+
+  try {
+    return await sandbox.runCode(code, {
+      language,
+      timeout: INTERPRETER_TIMEOUT_SEC,
+    });
+  } finally {
+    await sandbox.remove();
+  }
+}
+```
+
+```python Python
+from voidrun import VoidRun
+
+vr = VoidRun()
+
+
+def run_untrusted_snippet(code: str, language: str):
+    assert_acceptable(code, language)
+    sandbox = vr.create_sandbox(
+        cpu=SANDBOX_CPU,
+        mem=SANDBOX_MEM_MB,
+        image="code",
+    )
+    try:
+        return sandbox.run_code(
+            code,
+            language=language,
+            timeout=INTERPRETER_TIMEOUT_SEC,
+        )
+    finally:
+        sandbox.remove()
+```
+</CodeGroup>
+
+## Step 3: Never interpolate user code into `sh -c`
+
+You call the **interpreter API** (`runCode` / `run_code`) for user snippets. When you must use **`exec`** with user **data** (not code), you pass values through **`env`** or **encoded files**, not raw string glue.
+
+**Unsafe (do not do this):**
+
+```typescript
+// BAD: user controls the full shell string
+await sandbox.exec({ command: `python3 -c "${userCode}"` });
+```
+
+**Safer direction:** you upload the snippet to a file with a random name, then you **`exec`** a fixed command that reads that path: but you still sanitize path and length, and you prefer **`run_code`** when available.
+
+## Step 4: Log and map errors for your API
+
+You catch SDK and HTTP errors. You return **generic** messages to end users; you keep **`details`** in server logs only.
+
+You map validated request fields into **`runUntrustedSnippet`**. You return a safe JSON shape to the client.
+
+<CodeGroup>
+```typescript TypeScript
+// Assume `code` and `language` come from your HTTP handler after validation.
+async function handleExecute(code: string, language: string) {
+  try {
+    const result = await runUntrustedSnippet(code, language);
+    return { ok: result.success, stdout: result.stdout, stderr: result.stderr };
+  } catch (e) {
+    console.error('run_failed', e);
+    return { ok: false, error: 'execution_rejected_or_failed' };
+  }
+}
+```
+
+```python Python
+def handle_execute(code: str, language: str):
+    try:
+        result = run_untrusted_snippet(code, language)
+        return {"ok": result.success, "stdout": result.stdout, "stderr": result.stderr}
+    except Exception as exc:
+        print("run_failed", exc)
+        return {"ok": False, "error": "execution_rejected_or_failed"}
+```
+</CodeGroup>
+
+## Practices you should follow
+
+- You add **static scans** (import blocklists, AST checks) when you support Python: this sits **before** `run_code`.
+- You disable or restrict **outbound network** at the platform layer when you run untrusted code.
+- You rate-limit **per user** and **per org** so abuse cannot exhaust your quota.
+- You read [Internet access](/networking/internet-access) and [Tailscale](/networking/tailscale) when networking is part of your product.
+
+## Related guides
+
+<CardGroup cols={2}>
+  <Card title="AI code interpreter" icon="lightbulb" href="/examples/ai-code-interpreter">
+    Structured interpreter results
+  </Card>
+  <Card title="Code execution" icon="code" href="/core-concepts/code-execution">
+    Exec vs interpreter
+  </Card>
+</CardGroup>

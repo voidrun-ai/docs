@@ -1,0 +1,175 @@
+---
+title: List and cleanup
+description: Page through sandboxes, filter by name or age, and remove stale VMs safely.
+---
+
+# Example: List and cleanup
+
+You use this pattern when you operate **dashboards**, **janitor cron jobs**, or **cost controls**. You call **`listSandboxes` / `list_sandboxes`** with **pagination**, you inspect **`meta`**, you delete rows that match your policy with **`removeSandbox` / `remove_sandbox`** or **`sandbox.remove()`**.
+
+## What you accomplish
+
+You never assume “one page is everything.” You walk **`page`** until you cover **`meta.total`**. You delete **only** sandboxes your policy owns (for example names prefixed with **`tmp-`** or **`preview-`**). You handle API errors so one failure does not abort the entire sweep.
+
+## Concepts you use
+
+- **TypeScript `meta`:** `total`, `page`, `limit`, `totalPages` (camelCase).
+- **Python `meta`:** `ListSandboxesMeta` with **`total_pages`** (snake_case).
+- **Removal:** **`removeSandbox(id)`** on the client, or **`sandbox.remove()`** when you already hold the instance.
+
+## Prerequisites
+
+You completed [Examples overview](/examples/overview).
+
+## Step 1: List the first page
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+
+const { sandboxes, meta } = await vr.listSandboxes({ page: 1, limit: 50 });
+
+console.log(`Page ${meta.page} / ${meta.totalPages}, total rows ~ ${meta.total}`);
+for (const s of sandboxes) {
+  console.log(s.id, s.name, s.status);
+}
+```
+
+```python Python
+from voidrun import VoidRun
+
+vr = VoidRun()
+result = vr.list_sandboxes(page=1, limit=50)
+
+meta = result.meta
+print(f"Page {meta.page} / {meta.total_pages}, total rows ~ {meta.total}")
+for s in result.sandboxes:
+    print(s.id, s.name, s.status)
+```
+</CodeGroup>
+
+## Step 2: Walk every page
+
+You loop until **`page > totalPages`** (TypeScript) or **`page > meta.total_pages`** (Python).
+
+<CodeGroup>
+```typescript TypeScript
+let page = 1;
+let totalPages = 1;
+
+do {
+  const { sandboxes, meta } = await vr.listSandboxes({ page, limit: 50 });
+  totalPages = meta.totalPages;
+  console.log(`--- page ${page} ---`);
+
+  for (const s of sandboxes) {
+    console.log(s.id, s.name);
+  }
+
+  page += 1;
+} while (page <= totalPages);
+```
+
+```python Python
+page = 1
+total_pages = 1
+
+while page <= total_pages:
+    result = vr.list_sandboxes(page=page, limit=50)
+    total_pages = result.meta.total_pages
+    print(f"--- page {page} ---")
+
+    for s in result.sandboxes:
+        print(s.id, s.name)
+
+    page += 1
+```
+</CodeGroup>
+
+## Step 3: Delete by naming policy
+
+You match **your** prefix so you never delete unrelated org sandboxes.
+
+<CodeGroup>
+```typescript TypeScript
+const PREFIX = 'tmp-';
+let p = 1;
+let pages = 1;
+
+do {
+  const { sandboxes, meta } = await vr.listSandboxes({ page: p, limit: 50 });
+  pages = meta.totalPages;
+
+  for (const s of sandboxes) {
+    if (s.name?.startsWith(PREFIX)) {
+      console.log('removing', s.id, s.name);
+      await vr.removeSandbox(s.id);
+    }
+  }
+
+  p += 1;
+} while (p <= pages);
+```
+
+```python Python
+PREFIX = "tmp-"
+
+page = 1
+total_pages = 1
+while page <= total_pages:
+    result = vr.list_sandboxes(page=page, limit=50)
+    total_pages = result.meta.total_pages
+    for s in result.sandboxes:
+        if (s.name or "").startswith(PREFIX):
+            print("removing", s.id, s.name)
+            vr.remove_sandbox(s.id)
+    page += 1
+```
+</CodeGroup>
+
+<Warning>
+You double-check **prefix and org scope** before you run destructive loops in production. You dry-run (log only) once after you change policy.
+</Warning>
+
+## Step 4: Delete with error isolation
+
+You continue the sweep when one **`remove`** fails (network blip).
+
+<CodeGroup>
+```typescript TypeScript
+async function safeRemove(id: string) {
+  try {
+    await vr.removeSandbox(id);
+  } catch (e) {
+    console.error('remove_failed', id, e);
+  }
+}
+```
+
+```python Python
+def safe_remove(sandbox_id: str) -> None:
+    try:
+        vr.remove_sandbox(sandbox_id)
+    except Exception as exc:
+        print("remove_failed", sandbox_id, exc)
+```
+</CodeGroup>
+
+## Practices you should follow
+
+- You use **`refId`** or **`name`** conventions when you create sandboxes so cleanup stays deterministic.
+- You respect **API rate limits**: you sleep briefly between pages if your operator asks you to.
+- You read [Lifecycle](/core-concepts/lifecycle) for **pause / resume / sleep** when you archive instead of delete.
+
+## Related guides
+
+<CardGroup cols={2}>
+  <Card title="Lifecycle" icon="arrows-rotate" href="/core-concepts/lifecycle">
+    Pause, resume, sleep semantics
+  </Card>
+  <Card title="TypeScript SDK" icon="code" href="/sdks/typescript">
+    `listSandboxes` return shape
+  </Card>
+</CardGroup>

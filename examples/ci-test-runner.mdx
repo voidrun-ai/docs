@@ -1,0 +1,170 @@
+---
+title: CI test runner
+description: Run npm, pytest, or shell test suites in a sandbox and fail your pipeline on non-zero exit codes.
+---
+
+# Example: CI test runner
+
+You use this pattern when **continuous integration** (or a scheduled job) must execute tests inside an isolated Linux environment. You treat the sandbox as a **throwaway worker**: you create it, you run one command (or a small script), you read the **exit code**, you delete the sandbox.
+
+## What you accomplish
+
+You provision a sandbox with a **system image**. For most JS and Python CI jobs you use **`code`** (includes Node and Python). You use **`max`** when you need a **Debian**-style environment, or **`docker`** only when the pipeline needs Docker inside the VM. You run **`npm ci && npm test`**, **`pytest`**, or a **`bash`** driver script. You map **`exitCode === 0` / `exit_code == 0`** to pipeline success. You surface **`stderr`** in your CI logs when tests fail.
+
+## Concepts you use
+
+- **`exec`** returns an envelope whose **payload** holds **`stdout`**, **`stderr`**, and **`exitCode` / `exit_code`**. In TypeScript you read **`result.data`**. In Python **`result.data`** is already the inner **`ExecResponseData`** (single `.data`, not nested twice).
+- **`timeout`:** You set a generous **`timeout`** (seconds) so large installs do not abort mid-run.
+- **`cwd` and `env`:** You set the working directory and inject secrets (test tokens) through **`env`** / **`envVars`** instead of embedding them in the command string when you can.
+
+## Prerequisites
+
+You completed [Examples overview](/examples/overview). You know which **image** contains your toolchain, or you install tools in the first **`exec`** step.
+
+## Step 1: Create a sandbox for the job
+
+You name the sandbox so you can correlate CI logs (for example **`ci-` + build id**).
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+
+const sandbox = await vr.createSandbox({
+  name: `ci-${process.env.CI_BUILD_ID ?? Date.now()}`,
+  image: 'code',
+  cpu: 2,
+  mem: 4096,
+});
+```
+
+```python Python
+import os
+from voidrun import VoidRun
+
+vr = VoidRun()
+sandbox = vr.create_sandbox(
+    name=f"ci-{os.environ.get('CI_BUILD_ID', 'local')}",
+    image="code",
+    cpu=2,
+    mem=4096,
+)
+```
+</CodeGroup>
+
+## Step 2: Run the test command
+
+You keep the command **one logical unit** (single `exec`) when possible so you capture one exit code for the whole suite. You increase **timeout** for `npm ci` plus tests.
+
+<CodeGroup>
+```typescript TypeScript
+const run = await sandbox.exec({
+  command: 'set -euo pipefail; cd /app && npm ci && npm test',
+  cwd: '/',
+  timeout: 900,
+  env: {
+    CI: 'true',
+    NODE_ENV: 'test',
+  },
+});
+
+const exitCode = run.data?.exitCode ?? -1;
+const passed = exitCode === 0;
+
+console.log(passed ? 'TESTS_PASSED' : 'TESTS_FAILED');
+if (!passed) {
+  console.error('stderr:\n', run.data?.stderr);
+  console.error('stdout:\n', run.data?.stdout);
+}
+
+process.exitCode = passed ? 0 : 1;
+```
+
+```python Python
+import sys
+
+run = sandbox.exec(
+    "set -euo pipefail; cd /app && npm ci && npm test",
+    cwd="/",
+    timeout=900,
+    env={
+        "CI": "true",
+        "NODE_ENV": "test",
+    },
+)
+
+exit_code = run.data.exit_code if run.data.exit_code is not None else -1
+passed = exit_code == 0
+
+print("TESTS_PASSED" if passed else "TESTS_FAILED")
+if not passed:
+    print("stderr:\n", run.data.stderr)
+    print("stdout:\n", run.data.stdout)
+
+sys.exit(0 if passed else 1)
+```
+</CodeGroup>
+
+## Step 3: Python tests with pytest (variant)
+
+You swap the command when your repo is Python-first. You still rely on **`exit_code`**.
+
+<CodeGroup>
+```typescript TypeScript
+const py = await sandbox.exec({
+  command: 'set -euo pipefail; cd /workspace && pip install -r requirements.txt && pytest -q',
+  cwd: '/',
+  timeout: 900,
+});
+console.log('exit', py.data?.exitCode);
+```
+
+```python Python
+py = sandbox.exec(
+    "set -euo pipefail; cd /workspace && pip install -r requirements.txt && pytest -q",
+    cwd="/",
+    timeout=900,
+)
+print("exit", py.data.exit_code)
+```
+</CodeGroup>
+
+## Step 4: Clean up
+
+You remove the sandbox in a **`finally`** block (or CI **always** step) so failures do not leak VMs.
+
+<CodeGroup>
+```typescript TypeScript
+try {
+  // Place the same exec block you used in Step 2 here.
+} finally {
+  await sandbox.remove();
+}
+```
+
+```python Python
+try:
+    # Place the same exec block you used in Step 2 here.
+    pass
+finally:
+    sandbox.remove()
+```
+</CodeGroup>
+
+## Practices you should follow
+
+- You upload or clone **source** into the sandbox before you test if `/app` is empty: use **file APIs** or **`exec`** with `git clone` depending on your security model.
+- You avoid echoing **secrets** in **`command`** strings; you pass them through **`env`**.
+- You cap **parallel** sandboxes per org if you pay per sandbox minute.
+
+## Related guides
+
+<CardGroup cols={2}>
+  <Card title="Code execution" icon="terminal" href="/core-concepts/code-execution">
+    Exec options and streaming
+  </Card>
+  <Card title="Custom images" icon="container-storage" href="/environments/custom-images">
+    Pre-baked toolchains
+  </Card>
+</CardGroup>

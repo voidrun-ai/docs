@@ -38,7 +38,7 @@ Execute any shell command inside the sandbox:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.createSandbox({ cpu: 2, mem: 2048 });
 
 // Execute a simple bash command
@@ -58,17 +58,15 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.create(cpu=2, mem=2048)
-sandbox = resp.data
-
+sandbox = vr.create_sandbox(cpu=2, mem=2048)
 # Execute a simple bash command
 result = sandbox.exec('echo "Hello, VoidRun!" && pwd')
 
-print("stdout:", result.data.data.stdout)
-print("stderr:", result.data.data.stderr)
-print("exit code:", result.data.data.exit_code)
+print("stdout:", result.data.stdout)
+print("stderr:", result.data.stderr)
+print("exit code:", result.data.exit_code)
 
-sandbox.delete()
+sandbox.remove()
 ```
 
 ```bash CLI
@@ -83,14 +81,14 @@ voidrun exec <sandbox-id> --command 'echo "Hello, VoidRun!" && pwd'
 
 ```bash cURL
 # Create sandbox
-curl -X POST "https://api.voidrun.com/v1/sandboxes" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"cpu": 2, "mem": 2048}'
 
 # Execute command (replace <sandbox-id>)
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "echo \"Hello, VoidRun!\" && pwd"}'
 ```
@@ -104,7 +102,7 @@ Use the code interpreter to run Python code:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.createSandbox({ cpu: 2, mem: 2048 });
 
 // Run Python code using the interpreter
@@ -134,9 +132,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.create(cpu=2, mem=2048)
-sandbox = resp.data
-
+sandbox = vr.create_sandbox(cpu=2, mem=2048)
 # Run Python code using the interpreter
 result = sandbox.run_code("""
 import math
@@ -152,11 +148,11 @@ results = [fibonacci(i) for i in range(10)]
 print(json.dumps(results))
 """, language="python")
 
-print("Success:", result.data.success)
-print("Output:", result.data.stdout)
-print("Results:", result.data.results)
+print("Success:", result.success)
+print("Output:", result.stdout)
+print("Results:", result.results)
 
-sandbox.delete()
+sandbox.remove()
 ```
 
 ```bash CLI
@@ -168,8 +164,8 @@ voidrun exec <sandbox-id> --command 'python3 /app/script.py'
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "python3 -c \"print(2 + 2)\""}'
 ```
@@ -183,7 +179,7 @@ Execute JavaScript code with the Node.js runtime:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.createSandbox({ cpu: 2, mem: 2048 });
 
 // Run JavaScript code
@@ -207,9 +203,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.create(cpu=2, mem=2048)
-sandbox = resp.data
-
+sandbox = vr.create_sandbox(cpu=2, mem=2048)
 # Run JavaScript code
 result = sandbox.run_code("""
 const numbers = [1, 2, 3, 4, 5];
@@ -221,9 +215,9 @@ const avg = sum / numbers.length;
 console.log(JSON.stringify({ sum, avg, count: numbers.length }));
 """, language="javascript")
 
-print("Output:", result.data.stdout)
+print("Output:", result.stdout)
 
-sandbox.delete()
+sandbox.remove()
 ```
 
 ```bash CLI
@@ -235,8 +229,8 @@ voidrun exec <sandbox-id> --command 'node /app/script.js'
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "node -e \"console.log(2 + 2)\""}'
 ```
@@ -250,7 +244,7 @@ Execute shell commands and scripts:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.createSandbox({ cpu: 2, mem: 2048 });
 
 // Run bash commands
@@ -274,9 +268,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.create(cpu=2, mem=2048)
-sandbox = resp.data
-
+sandbox = vr.create_sandbox(cpu=2, mem=2048)
 # Run bash commands
 result = sandbox.run_code("""
 # System information
@@ -288,9 +280,9 @@ echo "Uptime: $(uptime -p)"
 ls -la /home
 """, language="bash")
 
-print("Output:", result.data.stdout)
+print("Output:", result.stdout)
 
-sandbox.delete()
+sandbox.remove()
 ```
 
 ```bash CLI
@@ -299,8 +291,8 @@ voidrun exec <sandbox-id> --command 'echo "Hostname: $(hostname)" && date && upt
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "echo \"Hostname: $(hostname)\" && date"}'
 ```
@@ -316,7 +308,7 @@ Every execution returns a structured response with stdout, stderr, and exit code
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 const result = await sandbox.exec({ 
@@ -341,18 +333,16 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 result = sandbox.exec('ls -la /nonexistent 2>&1; echo "Exit code: $?"')
 
 # Access output fields
-print("Standard Output:", result.data.data.stdout)
-print("Standard Error:", result.data.data.stderr)
-print("Exit Code:", result.data.data.exit_code)
+print("Standard Output:", result.data.stdout)
+print("Standard Error:", result.data.stderr)
+print("Exit Code:", result.data.exit_code)
 
 # Check success
-if result.data.data.exit_code == 0:
+if result.data.exit_code == 0:
     print("Command succeeded")
 else:
     print("Command failed")
@@ -366,8 +356,8 @@ voidrun exec <sandbox-id> --command 'ls -la /nonexistent'
 
 ```bash cURL
 # Response includes stdout, stderr, and exitCode
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "ls -la /nonexistent"}'
 
@@ -391,7 +381,7 @@ The code interpreter returns additional structured data:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 const result = await sandbox.runCode(`
@@ -414,22 +404,20 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 result = sandbox.run_code("""
 import json
 data = {"name": "VoidRun", "version": 1.0}
 print(json.dumps(data))
 """, language="python")
 
-# Code interpreter response structure
-print("Success:", result.data.success)        # boolean
-print("Stdout:", result.data.stdout)          # raw output
-print("Stderr:", result.data.stderr)          # errors
-print("Exit Code:", result.data.exit_code)    # process exit code
-print("Results:", result.data.results)        # parsed last line
-print("Logs:", result.data.logs)              # {"stdout": [], "stderr": []}
+# Code interpreter response structure (CodeExecutionResult)
+print("Success:", result.success)        # boolean
+print("Stdout:", result.stdout)          # raw output
+print("Stderr:", result.stderr)          # errors
+print("Exit Code:", result.exit_code)    # process exit code
+print("Results:", result.results)        # parsed last line
+print("Logs:", result.logs)              # {"stdout": [], "stderr": []}
 ```
 
 ```bash CLI
@@ -438,8 +426,8 @@ voidrun exec <sandbox-id> --command 'python3 -c "import json; print(json.dumps({
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "python3 -c \"import json; print(json.dumps({\\\"name\\\": \\\"VoidRun\\\"}))\""}'
 ```
@@ -453,7 +441,7 @@ For long-running commands, use streaming to get real-time output:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Stream output in real-time
@@ -475,9 +463,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Stream output in real-time
 def on_stdout(data):
     print(f"stdout: {data}")
@@ -501,8 +487,8 @@ voidrun exec <sandbox-id> --command 'for i in {1..10}; do echo "Count: $i"; slee
 
 ```bash cURL
 # Use the exec-stream endpoint for SSE streaming
-curl -N "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec-stream" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -N "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec-stream" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "for i in {1..10}; do echo \"Count: $i\"; sleep 1; done"}'
 ```
@@ -522,7 +508,7 @@ The default timeout is 30 seconds. For long-running commands, explicitly set a h
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Set a 60-second timeout
@@ -544,9 +530,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Set a 60-second timeout
 result = sandbox.exec(
     'sleep 30 && echo "Done"',
@@ -567,8 +551,8 @@ voidrun exec <sandbox-id> --command 'sleep 30 && echo "Done"' --timeout 60
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "sleep 30 && echo \"Done\"", "timeout": 60}'
 ```
@@ -582,7 +566,7 @@ Execute commands in a specific directory:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Execute in specific directory
@@ -599,16 +583,14 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Execute in specific directory
 result = sandbox.exec(
     'pwd && ls -la',
     cwd='/app/src'  # working directory
 )
 
-print(result.data.data.stdout)  # /app/src
+print(result.data.stdout)  # /app/src
 ```
 
 ```bash CLI
@@ -617,8 +599,8 @@ voidrun exec <sandbox-id> --command 'pwd && ls -la' --cwd /app/src
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "pwd && ls -la", "cwd": "/app/src"}'
 ```
@@ -632,7 +614,7 @@ Pass custom environment variables to commands:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Pass environment variables
@@ -652,9 +634,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Pass environment variables
 result = sandbox.exec(
     'echo "API Key: $API_KEY" && echo "Debug: $DEBUG"',
@@ -664,7 +644,7 @@ result = sandbox.exec(
     }
 )
 
-print(result.data.data.stdout)
+print(result.data.stdout)
 ```
 
 ```bash CLI
@@ -673,8 +653,8 @@ voidrun exec <sandbox-id> --command 'API_KEY=secret DEBUG=true && echo "API Key:
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "command": "echo \"API Key: $API_KEY\"",
@@ -691,27 +671,24 @@ Run long-running processes in the background:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
-// Start a background process
-const runResult = await sandbox.commands.run({
-  command: 'npm run dev',
-  cwd: '/app'
-});
+// Start a background process (command, env?, cwd?, timeout?)
+const runResult = await sandbox.commands.run('npm run dev', undefined, '/app');
 
-console.log('Process PID:', runResult.data?.pid);
+console.log('Process PID:', runResult.pid);
 
 // List running processes
 const listResult = await sandbox.commands.list();
-console.log('Running processes:', listResult.data);
+console.log('Running processes:', listResult.processes);
 
 // Wait for process to complete
-const waitResult = await sandbox.commands.wait(runResult.data?.pid);
-console.log('Exit code:', waitResult.data?.exitCode);
+const waitResult = await sandbox.commands.wait(runResult.pid);
+console.log('Exit code:', waitResult.exitCode);
 
 // Or kill a running process
-await sandbox.commands.kill(runResult.data?.pid);
+await sandbox.commands.kill(runResult.pid);
 ```
 
 ```python Python
@@ -719,14 +696,9 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Start a background process
-run_result = sandbox.commands.run(
-    command="npm run dev",
-    cwd="/app"
-)
+run_result = sandbox.commands.run("npm run dev", None, "/app")
 
 print("Process PID:", run_result.data.pid)
 
@@ -758,14 +730,14 @@ voidrun bg kill <sandbox-id> --pid <pid>
 
 ```bash cURL
 # Start background process
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/bg/run" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/run" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"command": "npm run dev", "cwd": "/app"}'
+  -d '{"command": "npm run dev", "cwd": "/app", "timeout": 0}'
 
 # List processes
-curl -X GET "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/bg/list" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/list" \
+  -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
 
@@ -783,7 +755,7 @@ Always handle execution errors gracefully:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 try {
@@ -808,17 +780,15 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 try:
     result = sandbox.exec('some-command-that-might-fail')
     
-    if result.data.data.exit_code != 0:
-        print("Command failed:", result.data.data.stderr)
+    if result.data.exit_code != 0:
+        print("Command failed:", result.data.stderr)
         # Handle failure
     else:
-        print("Success:", result.data.data.stdout)
+        print("Success:", result.data.stdout)
 except Exception as error:
     print("Execution error:", error)
     # Handle network/API errors
@@ -832,8 +802,8 @@ voidrun exec <sandbox-id> --command 'some-command'
 
 ```bash cURL
 # Check response for exitCode field
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "some-command"}'
 # Response: {"data": {"exitCode": 0, "stdout": "...", "stderr": "..."}}

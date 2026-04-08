@@ -42,7 +42,7 @@ VoidRun automatically optimizes resource usage by putting idle sandboxes to slee
     After **5 minutes** of inactivity, the sandbox enters sleep mode.
   </Step>
   <Step title="State Preservation">
-    The sandbox state is preserved—files, environment variables, and running processes are saved.
+    The sandbox state is preserved: files, environment variables, and running processes are saved.
   </Step>
   <Step title="Resource Release">
     Compute resources are released, reducing costs while the sandbox remains available.
@@ -57,7 +57,7 @@ The 5-minute idle timeout is configurable at the organization level. Contact sup
 
 When you interact with a sleeping sandbox, it resumes automatically in **under 200ms**:
 
-- **Transparent**: Resume happens automatically—no manual wake-up needed
+- **Transparent**: Resume happens automatically: no manual wake-up needed
 - **Fast**: Sub-200ms resume time feels instantaneous
 - **Stateful**: All files, environment variables, and configurations are preserved
 
@@ -97,7 +97,7 @@ Manually pause a running sandbox to release resources while preserving state:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Pause the sandbox
@@ -110,9 +110,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Pause the sandbox
 sandbox.pause()
 print("Sandbox paused")
@@ -124,8 +122,8 @@ voidrun pause <sandbox-id>
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/pause" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/pause" \
+  -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
 
@@ -137,7 +135,7 @@ Resume a paused or sleeping sandbox:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Resume the sandbox (< 200ms)
@@ -150,9 +148,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Resume the sandbox (< 200ms)
 sandbox.resume()
 print("Sandbox resumed and ready")
@@ -164,8 +160,8 @@ voidrun resume <sandbox-id>
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/resume" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/resume" \
+  -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
 
@@ -177,7 +173,7 @@ Stop a running sandbox completely (stronger than pause):
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Stop the sandbox
@@ -190,9 +186,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Stop the sandbox
 sandbox.stop()
 print("Sandbox stopped")
@@ -204,8 +198,8 @@ voidrun stop <sandbox-id>
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/stop" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/stop" \
+  -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
 
@@ -217,7 +211,7 @@ Start a stopped sandbox:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Start the sandbox
@@ -230,9 +224,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Start the sandbox
 sandbox.start()
 print("Sandbox started")
@@ -244,8 +236,8 @@ voidrun start <sandbox-id>
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/start" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/start" \
+  -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
 
@@ -261,7 +253,7 @@ Termination is permanent. All files, environment variables, and state will be lo
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Permanently delete the sandbox
@@ -274,11 +266,9 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Permanently delete the sandbox
-sandbox.delete()
+sandbox.remove()
 print("Sandbox terminated")
 ```
 
@@ -288,8 +278,8 @@ voidrun delete <sandbox-id>
 ```
 
 ```bash cURL
-curl -X DELETE "https://api.voidrun.com/v1/sandboxes/<sandbox-id>" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X DELETE "https://platform.void-run.com/api/sandboxes/<sandbox-id>" \
+  -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
 
@@ -324,7 +314,7 @@ For workflows that need to maintain state over long periods:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 
 async function runAIAgent() {
   // Create sandbox - will run indefinitely
@@ -363,13 +353,11 @@ vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
 
 def run_ai_agent():
     # Create sandbox - will run indefinitely
-    resp = vr.sandboxes.create(
+    sandbox = vr.create_sandbox(
         name="ai-agent-session",
         cpu=4,
         mem=4096
     )
-    sandbox = resp.data
-
     try:
         # Install dependencies
         sandbox.exec("pip install openai langchain")
@@ -383,10 +371,10 @@ def run_ai_agent():
             timeout=86400  # 24 hours
         )
 
-        print(result.data.data.stdout)
+        print(result.data.stdout)
     finally:
         # Clean up when truly done
-        sandbox.delete()
+        sandbox.remove()
 ```
 
 ```bash CLI
@@ -408,8 +396,8 @@ voidrun delete <sandbox-id>
 
 ```bash cURL
 # Create sandbox
-curl -X POST "https://api.voidrun.com/v1/sandboxes" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name":"ai-agent-session","cpu":4,"mem":4096}'
 

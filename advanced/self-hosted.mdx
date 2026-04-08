@@ -1,0 +1,33 @@
+---
+title: Self-hosted deployments
+description: How private or self-managed API endpoints relate to the public docs and OpenAPI contract.
+---
+
+# Self-hosted deployments
+
+This documentation site targets the **hosted VoidRun platform** base URL exemplified in guides (**`https://platform.void-run.com/api`**) and the **OpenAPI** description bundled at **`docs/openapi/voidrun.yml`**.
+
+## What may differ on your deployment
+
+| Area | Notes |
+|------|--------|
+| **Base URL** | Set **`VR_API_URL`** (or SDK **`baseUrl`**) to your deployment’s API prefix (often `https://<host>/api`). |
+| **Auth** | The public contract uses **`X-API-Key`**. Your operator may document org scoping, SSO, or extra headers: follow **their** docs. |
+| **Images & regions** | Available **`image`** names and **`region`** values come from **`GET /images`** and your operator’s catalog. |
+| **Features** | PTY, watch streams, audit logging, and quotas may vary by deployment. |
+
+## Source of truth
+
+- **Contract:** OpenAPI in the repo (**`voidrun/openapi.yml`**) and the docs copy **`docs/openapi/voidrun.yml`**.
+- **Behavior:** Your server’s release notes and operator documentation for self-managed installs.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="SDKs & API" icon="code" href="/sdks/overview">
+    Environment variables and REST overview.
+  </Card>
+  <Card title="Custom images" icon="container-storage" href="/environments/custom-images">
+    Choosing **`image`** and listing the catalog.
+  </Card>
+</CardGroup>

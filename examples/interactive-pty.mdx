@@ -1,0 +1,171 @@
+---
+title: Interactive PTY
+description: Open a pseudo-terminal in a sandbox (ephemeral shells or persistent sessions) with TypeScript and Python patterns.
+---
+
+# Example: Interactive PTY
+
+You use this pattern when **`exec`** is not enough: you need a **TTY** for REPLs, full-screen TUIs, or a **persistent shell** that survives disconnects. You connect through **`sandbox.pty`**, send input with **`sendInput` / `send_input`**, and optionally resize or run helper commands.
+
+## What you accomplish
+
+You open a **WebSocket-backed** PTY session (details live in OpenAPI under **PTY**). You choose **ephemeral** mode (no session id) or **persistent** mode (**`createSession` / `create_session`** first). You reuse session ids when you want buffered output after reconnect.
+
+## Prerequisites
+
+You completed [Examples overview](/examples/overview). You read the conceptual [PTY](/core-concepts/pty) page.
+
+<Note>
+Python **`connect`** is **async**; you typically use **`AsyncVoidRun`** in examples below. TypeScript **`connect`** returns a handle you **`await`** per your SDK version: follow the package types.
+</Note>
+
+## Pattern A: Ephemeral PTY (TypeScript)
+
+You connect without a **`sessionId`**. You write input as if you typed into a terminal. You close when finished.
+
+```typescript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+const sandbox = await vr.createSandbox({ mem: 1024 });
+
+const pty = await sandbox.pty.connect({
+  onData: (data) => process.stdout.write(data),
+  onError: (err) => console.error('pty error', err),
+});
+
+pty.sendInput('echo "hello from pty"\n');
+pty.sendInput('pwd\n');
+
+// Give the shell a moment to flush, then close.
+await new Promise((r) => setTimeout(r, 500));
+pty.close();
+
+await sandbox.remove();
+```
+
+## Pattern B: Persistent session (TypeScript)
+
+You create a session, you capture **`sessionId`**, you connect with it. You **close** the WebSocket without deleting the session if you want to reconnect later.
+
+```typescript
+const created = await sandbox.pty.createSession();
+const sessionId = created.data?.sessionId;
+if (!sessionId) throw new Error('no_session');
+
+const pty = await sandbox.pty.connect({
+  sessionId,
+  onData: (data) => process.stdout.write(data),
+});
+
+pty.sendInput('export FOO=bar\n');
+pty.sendInput('echo $FOO\n');
+await new Promise((r) => setTimeout(r, 300));
+pty.close();
+
+const again = await sandbox.pty.connect({
+  sessionId,
+  onData: (data) => process.stdout.write(data),
+});
+again.sendInput('echo reconnected\n');
+await new Promise((r) => setTimeout(r, 300));
+again.close();
+
+await sandbox.pty.deleteSession(sessionId);
+await sandbox.remove();
+```
+
+## Pattern C: Ephemeral PTY (Python, async)
+
+You mirror the TypeScript flow with **`AsyncVoidRun`**.
+
+```python
+import asyncio
+from voidrun import AsyncVoidRun
+
+
+async def main():
+    async with AsyncVoidRun() as vr:
+        sandbox = await vr.create_sandbox(mem=1024)
+        pty = await sandbox.pty.connect(
+            on_data=lambda data: print(data, end=""),
+            on_error=lambda err: print("pty error", err),
+        )
+        pty.send_input('echo "hello from pty"\n')
+        pty.send_input("pwd\n")
+        await asyncio.sleep(0.5)
+        await pty.close()
+        await sandbox.remove_async()
+
+
+asyncio.run(main())
+```
+
+## Pattern D: Persistent session (Python)
+
+You call **`create_session()`** on the sync **`PTY`** object (HTTP), then **`await connect`** with **`session_id`**. Inner field names follow the generated models (often **`session_id`** on nested **`data`**).
+
+```python
+import asyncio
+from voidrun import AsyncVoidRun
+
+
+async def main():
+    async with AsyncVoidRun() as vr:
+        sandbox = await vr.create_sandbox(mem=1024)
+        resp = sandbox.pty.create_session()
+        inner = resp.data.data if resp.data and resp.data.data else None
+        session_id = inner.session_id if inner else None
+        if not session_id:
+            raise RuntimeError("no_session")
+
+        pty = await sandbox.pty.connect(
+            session_id=session_id,
+            on_data=lambda data: print(data, end=""),
+        )
+        pty.send_input("export FOO=bar\n")
+        pty.send_input("echo $FOO\n")
+        await asyncio.sleep(0.3)
+        await pty.close()
+
+        again = await sandbox.pty.connect(
+            session_id=session_id,
+            on_data=lambda data: print(data, end=""),
+        )
+        again.send_input("echo reconnected\n")
+        await asyncio.sleep(0.3)
+        await again.close()
+
+        sandbox.pty.delete_session(session_id)
+        await sandbox.remove_async()
+
+
+asyncio.run(main())
+```
+
+<Note>
+You inspect **`create_session`** response types in your installed **`voidrun`** package if **`resp.data.data.session_id`** differs after an OpenAPI regen. The [Python SDK](/sdks/python) page describes **`VoidRunResponse`** shapes.
+</Note>
+
+## Helpers you use in production
+
+- **`runCommand` / `run_command`**: send a command and wait for a **prompt regex** (see SDK README).
+- **`resize`**: set terminal geometry when UIs depend on columns/rows.
+- **`list`** / **`deleteSession` / `delete_session`**: manage persistent sessions.
+
+## Practices you should follow
+
+- You **rate-limit** PTY sessions per user; interactive shells are expensive.
+- You **delete** persistent sessions when you abandon them so you do not leak TTY state.
+- You never paste **secrets** into transcripts you log.
+
+## Related guides
+
+<CardGroup cols={2}>
+  <Card title="PTY concepts" icon="terminal" href="/core-concepts/pty">
+    When to choose PTY vs exec
+  </Card>
+  <Card title="TypeScript SDK" icon="code" href="/sdks/typescript">
+    PTY class surface
+  </Card>
+</CardGroup>
