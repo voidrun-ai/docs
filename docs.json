@@ -86,6 +86,7 @@
             "group": "Sandbox patterns",
             "pages": [
               "examples/ai-code-interpreter",
+              "examples/coding-agents-sandbox",
               "examples/ci-test-runner",
               "examples/github-actions",
               "examples/ephemeral-dev-environment",
@@ -107,8 +108,8 @@
     ]
   },
   "logo": {
-    "light": "/logo/on-dark-theme.svg",
-    "dark": "/logo/on-light-theme.svg"
+    "light": "/logo/on-dark-theme.png",
+    "dark": "/logo/on-light-theme.png"
   },
   "navbar": {
     "links": [

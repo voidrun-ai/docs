@@ -1,0 +1,147 @@
+---
+title: Vendor coding agent CLIs in a sandbox
+description: Install and run GitHub Copilot CLI, Claude Code, OpenCode, or Kilo Code inside a VoidRun MicroVM with Node, sudo for global npm and /work, secrets via envVars, and optional PTY for interactive sessions.
+---
+
+# Example: Vendor coding agent CLIs in a sandbox
+
+You use this pattern when you want **real terminal coding agents** (for example **GitHub Copilot CLI**, **Claude Code**, **OpenCode**, or **Kilo Code**, sometimes written “Kilocode”) to work **inside an isolated Linux VM** instead of on a developer laptop. The sandbox gives you a clean **Node-capable** environment (typically the **`code`** system image), a persistent workspace directory, and the same **`exec`** / **filesystem** APIs you use for any other automation.
+
+## What you accomplish
+
+1. You create a sandbox with enough **memory** for **`npm install -g`** (often **4 GB** or more).
+2. You create a workspace under **`/work/...`**. If **`mkdir`** is denied for the default user, you use **`sudo mkdir`** and **`sudo chown "$(id -u):$(id -g)"`** so the sandbox user can read and write (and **`fs.uploadFile`** works).
+3. You install the vendor CLI with **`sudo npm install -g`** so packages land in the default global prefix (for example **`/usr/local/bin`**) without relying on **`/tmp`** as an install location.
+4. You pass **provider secrets** with **`envVars`** on **`createSandbox`**, or **`env`** on each **`exec`**, so keys never live in the command string.
+5. For **interactive** full-screen TUIs, you attach a **PTY** (or SSH/VNC per your deployment). For **CI-style** runs, you use each vendor’s **non-interactive** or **headless** flags from their docs.
+
+## Tools this guide matches
+
+| Product | Typical global install (npm) | Notes |
+|---------|------------------------------|--------|
+| **Claude Code** | `sudo npm install -g @anthropic-ai/claude-code` | Often **`ANTHROPIC_API_KEY`** (or **`ANTHROPIC_AUTH_TOKEN`**) in the VM env. Official install script also documented by Anthropic. |
+| **OpenCode** | `sudo npm install -g opencode-ai` | Provider keys vary; configure per [OpenCode docs](https://opencode.ai/docs). |
+| **Kilo Code** | `sudo npm install -g @kilocode/cli` | Interactive **`kilo`** TUI; configure providers per [Kilo CLI docs](https://kilo.ai/docs/code-with-ai/platforms/cli). |
+| **GitHub Copilot CLI** | `sudo npm install -g @github/copilot` | **`GH_TOKEN`** or **`GITHUB_TOKEN`** with Copilot permissions; see [GitHub docs](https://docs.github.com/copilot/concepts/agents/about-copilot-cli). Binary is usually **`copilot`**. |
+
+Install methods change; always confirm the **current** command on the vendor’s site. Alternatives include **`curl | bash`** installers (Copilot: `https://gh.io/copilot-install`) or **`brew`**, which you can run inside a **`max`** image if you need **apt**/**brew**-style workflows.
+
+## Concepts you use
+
+- **`code` image:** Fast TTI with **Node** and many runtimes; good default for npm-based CLIs. If a binary needs **glibc**-heavy dependencies, try **`max`** or a [custom image](/environments/custom-images).
+- **`sudo`:** Use it when **`/work`** or the global npm prefix is root-owned. After **`sudo mkdir`**, **`chown`** the tree to the interactive user so uploads and git writes succeed.
+- **Secrets:** Map **orchestrator** secrets into **`createSandbox({ envVars: { … } })`** so every shell in the VM sees them, or pass **`env`** only on the **`exec`** that starts the agent.
+- **Interactive vs headless:** TUIs expect a terminal; use [Interactive PTY](/examples/interactive-pty). Unattended jobs need the vendor’s documented flags (print mode, CI, `--help` output).
+- **Performance:** Repeated **`npm install -g`** in every sandbox is slow; for production, bake the CLI into a **custom image** and create sandboxes from that image.
+
+## Prerequisites
+
+You completed [Examples overview](/examples/overview). You set **`VR_API_KEY`**. Outbound **npm registry** access must be allowed for installs inside the VM (see [Internet access](/networking/internet-access) if you restrict egress). Your image must ship **`sudo`** (and typically passwordless rules for the sandbox user) if you follow this pattern.
+
+## Reference script (TypeScript SDK repo)
+
+The SDK includes **`ts-sdk/example/coding-agent-sandbox.ts`**, which:
+
+- Creates a **`code`** sandbox (**4 GB** RAM default).
+- Runs **`sudo mkdir -p /work/agent-project`** and **`sudo chown`** to the current user, then seeds **`README.md`** via **`fs.uploadFile`**.
+- Runs **`sudo npm install -g`** for **`claude`**, **`opencode`**, **`kilo`**, or **`copilot`** (first CLI argument).
+- Copies **known** provider env vars from the host into **`envVars`** when set (**never** prints their values).
+
+```bash
+cd ts-sdk
+npm install
+npm run build
+# Optional on host: export ANTHROPIC_API_KEY=...  OR  GH_TOKEN=...
+npx tsx --env-file=.env example/coding-agent-sandbox.ts claude
+npx tsx --env-file=.env example/coding-agent-sandbox.ts opencode
+npx tsx --env-file=.env example/coding-agent-sandbox.ts kilo
+npx tsx --env-file=.env example/coding-agent-sandbox.ts copilot
+```
+
+Export **`collectProviderEnvForSandbox`** and **`setupVendorCliInSandbox`** from that file if you want to reuse the same steps from your own orchestrator.
+
+## Minimal shape in your own app
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+const repo = '/work/agent-repo';
+
+const sandbox = await vr.createSandbox({
+  name: `copilot-${Date.now()}`,
+  image: 'code',
+  cpu: 2,
+  mem: 4096,
+  envVars: {
+    GH_TOKEN: process.env.GH_TOKEN!,
+  },
+});
+
+try {
+  await sandbox.exec({
+    command: `sudo mkdir -p ${repo} && sudo chown "$(id -u):$(id -g)" ${repo}`,
+    timeout: 60,
+  });
+  await sandbox.exec({
+    command: 'sudo npm install -g @github/copilot',
+    timeout: 600,
+  });
+  await sandbox.exec({
+    command: `cd ${repo} && copilot --help | head -n 20`,
+    timeout: 60,
+  });
+} finally {
+  await sandbox.remove();
+}
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+repo = "/work/agent-repo"
+vr = VoidRun()
+sandbox = vr.create_sandbox(
+    name=f"claude-{int(__import__('time').time())}",
+    image="code",
+    cpu=2,
+    mem=4096,
+    env_vars={"ANTHROPIC_API_KEY": os.environ["ANTHROPIC_API_KEY"]},
+)
+try:
+    sandbox.exec(
+        f'sudo mkdir -p {repo} && sudo chown "$(id -u):$(id -g)" {repo}',
+        timeout=60,
+    )
+    sandbox.exec("sudo npm install -g @anthropic-ai/claude-code", timeout=600)
+    sandbox.exec(f"cd {repo} && claude --help | head -n 20", timeout=60)
+finally:
+    sandbox.remove()
+```
+</CodeGroup>
+
+## Practices you should follow
+
+- You **never** commit provider tokens; you inject them from a secret store at runtime.
+- You **pin** CLI versions (`sudo npm install -g package@x.y.z`) when reproducibility matters.
+- You **read exit codes** from **`exec`** after install and after agent runs; surface **stderr** in your logs.
+- You combine this with [Untrusted user code](/examples/untrusted-user-code) when the **agent** can execute arbitrary commands suggested by an end user.
+
+## Related guides
+
+<CardGroup cols={2}>
+  <Card title="Interactive PTY" icon="terminal" href="/examples/interactive-pty">
+    Terminal UI for CLIs that need a real TTY
+  </Card>
+  <Card title="Ephemeral dev environment" icon="laptop" href="/examples/ephemeral-dev-environment">
+    Throwaway VMs with tooling pre-installed
+  </Card>
+  <Card title="Custom images" icon="image" href="/environments/custom-images">
+    Bake CLIs into the image to skip repeated installs
+  </Card>
+  <Card title="Multi-step job" icon="layers" href="/examples/multi-step-job">
+    Shared disk across clone, install, test
+  </Card>
+</CardGroup>
