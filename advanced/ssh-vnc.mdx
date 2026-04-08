@@ -45,7 +45,7 @@ SSH credentials are typically provided in the sandbox creation response or via a
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 
 // Create a sandbox
 const sandbox = await vr.createSandbox({
@@ -75,13 +75,11 @@ import os
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
 
 # Create a sandbox
-resp = vr.sandboxes.create(
+sandbox = vr.create_sandbox(
     name="ssh-demo",
     cpu=2,
     mem=2048
 )
-sandbox = resp.data
-
 # TODO: Verify exact method for retrieving SSH credentials
 # SSH credentials may be in the sandbox response or via a dedicated method
 # Example expected structure:
@@ -107,15 +105,15 @@ voidrun get <sandbox-id>
 
 ```bash cURL
 # Create a sandbox
-curl -X POST "https://api.voidrun.com/v1/sandboxes" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name": "ssh-demo", "cpu": 2, "mem": 2048}'
 
 # TODO: Verify exact endpoint for SSH credentials
 # Example expected endpoint:
-# curl -X GET "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/ssh" \
-#   -H "Authorization: Bearer $VOIDRUN_API_KEY"
+# curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/ssh" \
+#   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
 
@@ -168,7 +166,7 @@ For programmatic terminal access, use the PTY streaming API:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Connect to PTY for interactive terminal access
@@ -200,9 +198,7 @@ import os
 import asyncio
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Connect to PTY for interactive terminal access
 async def terminal_session():
     pty = await sandbox.pty.connect(
@@ -261,7 +257,7 @@ VNC is not pre-installed in default VoidRun images. You need to install a deskto
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.createSandbox({
   name: 'vnc-sandbox',
   cpu: 4,
@@ -293,13 +289,11 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.create(
+sandbox = vr.create_sandbox(
     name="vnc-sandbox",
     cpu=4,
     mem=4096
 )
-sandbox = resp.data
-
 # Install desktop environment and VNC server
 print("Installing desktop environment and VNC...")
 
@@ -313,7 +307,7 @@ sandbox.exec("vncserver :1 -geometry 1920x1080 -depth 24")
 
 # Verify VNC is running
 result = sandbox.exec("vncserver -list")
-print("VNC sessions:", result.data.data.stdout)
+print("VNC sessions:", result.data.stdout)
 ```
 
 ```bash CLI
@@ -334,8 +328,8 @@ voidrun exec <sandbox-id> --command "vncserver -list"
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "sudo apt-get update && sudo apt-get install -y xfce4 xfce4-goodies tightvncserver"}'
 ```
@@ -347,7 +341,7 @@ curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // TODO: Verify exact method for retrieving VNC connection details
@@ -373,9 +367,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # TODO: Verify exact method for retrieving VNC connection details
 # VNC connection details may be retrieved via:
 # 1. A dedicated API endpoint
@@ -390,7 +382,7 @@ sandbox = resp.data
 
 # For now, check VNC server status
 result = sandbox.exec("vncserver -list")
-print("VNC sessions:", result.data.data.stdout)
+print("VNC sessions:", result.data.stdout)
 ```
 
 ```bash CLI
@@ -408,8 +400,8 @@ voidrun get <sandbox-id>
 ```bash cURL
 # TODO: Verify exact endpoint for VNC configuration
 # Example expected endpoint:
-# curl -X GET "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/vnc" \
-#   -H "Authorization: Bearer $VOIDRUN_API_KEY"
+# curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/vnc" \
+#   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
 
@@ -452,7 +444,7 @@ For web-based VNC access without a client:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Install noVNC for browser-based access
@@ -475,9 +467,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Install noVNC for browser-based access
 sandbox.exec("sudo apt-get install -y novnc websockify")
 
@@ -497,8 +487,8 @@ voidrun exec <sandbox-id> --command "websockify --web=/usr/share/novnc/ 6080 loc
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "sudo apt-get install -y novnc websockify && websockify --web=/usr/share/novnc/ 6080 localhost:5901 &"}'
 ```
@@ -512,7 +502,7 @@ VNC is particularly useful for visual AI agents and browser automation:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('vnc-sandbox');
 
 // Install browser and automation tools
@@ -553,9 +543,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("vnc-sandbox")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("vnc-sandbox")
 # Install browser and automation tools
 sandbox.exec("sudo apt-get install -y chromium-browser chromium-chromedriver")
 
@@ -580,7 +568,7 @@ driver.quit()
 
 sandbox.fs.upload_file("/tmp/automation.py", script)
 result = sandbox.exec("python /tmp/automation.py")
-print(result.data.data.stdout)
+print(result.data.stdout)
 
 # Download screenshot
 screenshot = sandbox.fs.download_file("/tmp/screenshot.png")
@@ -601,8 +589,8 @@ voidrun download <sandbox-id> /tmp/screenshot.png ./screenshot.png
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "sudo apt-get install -y chromium-browser && pip install selenium"}'
 ```
@@ -620,7 +608,7 @@ curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Option 1: Resume sandbox if sleeping
@@ -645,9 +633,7 @@ import threading
 import time
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Option 1: Resume sandbox if sleeping
 sandbox.resume()
 
@@ -680,8 +666,8 @@ voidrun exec <sandbox-id> --command "while true; do sleep 60; done &"
 
 ```bash cURL
 # Resume sandbox
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/resume" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/resume" \
+  -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
 
@@ -691,7 +677,7 @@ curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/resume" \
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 
 // Check sandbox status
 const sandbox = await vr.getSandbox('sandbox-id');
@@ -710,9 +696,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 if sandbox.status == "sleeping":
     print("Sandbox is sleeping, resuming...")
     sandbox.resume()
@@ -731,12 +715,12 @@ voidrun resume <sandbox-id>
 
 ```bash cURL
 # Check sandbox status
-curl -X GET "https://api.voidrun.com/v1/sandboxes/<sandbox-id>" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>" \
+  -H "X-API-Key: $VR_API_KEY"
 
 # Resume if sleeping
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/resume" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/resume" \
+  -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
 

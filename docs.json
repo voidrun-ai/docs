@@ -1,13 +1,16 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "maple",
+  "theme": "linden",
   "name": "VoidRun",
   "description": "Modern AI Sandbox platform for secure code execution.",
-  "favicon": "/favicon.svg",
+  "favicon": "/favicon.png",
   "colors": {
     "primary": "#0F3D3E",
     "light": "#E6F2F2",
     "dark": "#0F3D3E"
+  },
+  "appearance": {
+    "default": "light"
   },
   "typography": {
     "headings": {
@@ -18,48 +21,94 @@
     }
   },
   "navigation": {
-    "groups": [
+    "tabs": [
       {
-        "group": "Getting Started",
-        "pages": [
-          "getting-started/introduction",
-          "getting-started/quickstart"
+        "tab": "Docs",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "getting-started/introduction",
+              "getting-started/quickstart"
+            ]
+          },
+          {
+            "group": "SDKs & API",
+            "pages": [
+              "sdks/overview",
+              "sdks/typescript",
+              "sdks/python"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "core-concepts/lifecycle",
+              "core-concepts/code-execution",
+              "core-concepts/file-system",
+              "core-concepts/file-watching",
+              "core-concepts/pty",
+              "core-concepts/background-commands"
+            ]
+          },
+          {
+            "group": "Environments",
+            "pages": [
+              "environments/custom-images",
+              "environments/package-management"
+            ]
+          },
+          {
+            "group": "Networking",
+            "pages": [
+              "networking/internet-access",
+              "networking/tailscale"
+            ]
+          },
+          {
+            "group": "Advanced Access",
+            "pages": [
+              "advanced/nested-containers",
+              "advanced/ssh-vnc",
+              "advanced/self-hosted"
+            ]
+          }
         ]
       },
       {
-        "group": "Core Concepts",
-        "pages": [
-          "core-concepts/lifecycle",
-          "core-concepts/code-execution",
-          "core-concepts/file-system"
+        "tab": "Examples",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": ["examples/overview"]
+          },
+          {
+            "group": "Sandbox patterns",
+            "pages": [
+              "examples/ai-code-interpreter",
+              "examples/ci-test-runner",
+              "examples/github-actions",
+              "examples/ephemeral-dev-environment",
+              "examples/untrusted-user-code",
+              "examples/file-ingest-etl",
+              "examples/multi-step-job",
+              "examples/background-process",
+              "examples/interactive-pty",
+              "examples/file-watching",
+              "examples/list-and-cleanup"
+            ]
+          }
         ]
       },
       {
-        "group": "Environments",
-        "pages": [
-          "environments/custom-images",
-          "environments/package-management"
-        ]
-      },
-      {
-        "group": "Networking",
-        "pages": [
-          "networking/internet-access",
-          "networking/tailscale"
-        ]
-      },
-      {
-        "group": "Advanced Access",
-        "pages": [
-          "advanced/nested-containers",
-          "advanced/ssh-vnc"
-        ]
+        "tab": "API Reference",
+        "openapi": "openapi/voidrun.yml"
       }
     ]
   },
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "light": "/logo/on-dark-theme.svg",
+    "dark": "/logo/on-light-theme.svg"
   },
   "navbar": {
     "links": [
@@ -77,8 +126,5 @@
     "socials": {
       "github": "https://github.com/voidrun-ai"
     }
-  },
-  "api": {
-    "baseUrl": "https://api.voidrun.com"
   }
 }

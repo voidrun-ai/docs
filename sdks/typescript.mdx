@@ -1,0 +1,238 @@
+---
+title: TypeScript SDK
+description: "Install, configure, and use @voidrun/sdk: sandboxes, exec, interpreter, files, PTY, and background commands."
+---
+
+# TypeScript SDK (`@voidrun/sdk`)
+
+The official **Node.js** client for VoidRun: ESM-first, TypeScript types generated from OpenAPI, and API names aligned with the [Python SDK](/sdks/python). Use this page for a structured reference; the [package README](https://www.npmjs.com/package/@voidrun/sdk) and repo `examples/` stay the source for exhaustive snippets.
+
+<CardGroup cols={2}>
+  <Card title="npm" icon="npm" href="https://www.npmjs.com/package/@voidrun/sdk">
+    Package and versions
+  </Card>
+  <Card title="Hub" icon="book" href="/sdks/overview">
+    Auth, base URL, REST overview
+  </Card>
+</CardGroup>
+
+## Requirements and install
+
+- **Node.js** 18+ (ESM); Node 20+ recommended for `tsx` examples  
+- **TypeScript** 5.x when compiling from source
+
+```bash
+npm install @voidrun/sdk
+```
+
+## Configuration
+
+`VoidRun` **requires an API key**. If you omit `apiKey`, the client reads **`process.env.VR_API_KEY`** (empty → throws).
+
+**Base URL** defaults to the packaged **`BASE_PATH`** (same host as OpenAPI **`servers`**). You override it only for **self-hosted** deployments: see below.
+
+```typescript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({
+  apiKey: process.env.VR_API_KEY!,
+});
+```
+
+| Variable | Role |
+|----------|------|
+| `VR_API_KEY` | API key when not passed to the constructor |
+| `VR_API_URL` | *(Self-hosted only.)* Overrides the packaged API base URL |
+
+<Note>
+Hosted VoidRun: you only need **`VR_API_KEY`**. For **self-managed** APIs, set **`VR_API_URL`** (or **`baseUrl`**) to your deployment’s root (include `/api` if that is how the server is mounted). See [Self-hosted deployments](/advanced/self-hosted).
+</Note>
+
+### Defaults for `createSandbox`
+
+If you omit fields, defaults match the Python SDK:
+
+| Field | Default |
+|-------|---------|
+| `image` | `code` |
+| `cpu` | `1` |
+| `mem` | `1024` (MB) |
+
+Other useful `createSandbox` options: `name`, `orgId`, `userId`, `sync`, `envVars`, `autoSleep`, `region`, `refId`.
+
+## Client: `VoidRun`
+
+| Method | Returns |
+|--------|---------|
+| `createSandbox(options)` | `VRSandbox` |
+| `getSandbox(id)` | `VRSandbox` |
+| `listSandboxes({ page?, limit? })` | `{ sandboxes, meta }` |
+| `removeSandbox(id)` | `void` (after API delete) |
+
+**Pagination `meta`:** `total`, `page`, `limit`, `totalPages` (camelCase).
+
+```typescript
+const { sandboxes, meta } = await vr.listSandboxes({ page: 1, limit: 50 });
+console.log(meta.total, meta.totalPages);
+```
+
+## Sandbox lifecycle
+
+On the sandbox instance:
+
+- `start()`, `stop()`, `pause()`, `resume()`
+- `remove()`: delete the sandbox on the API
+- `info()`: returns `Promise<this>` (refreshed view)
+
+```typescript
+const sandbox = await vr.createSandbox({ name: 'demo', cpu: 2, mem: 2048 });
+await sandbox.exec({ command: 'echo ok' });
+await sandbox.remove();
+```
+
+## Shell execution (`exec`)
+
+Non-streaming **`exec`** returns an **`ExecResponse`**. Read stdout/stderr/exit code from **`result.data`** (`ExecResponseData`):
+
+```typescript
+const result = await sandbox.exec({ command: 'uname -a' });
+console.log(result.data?.stdout);
+console.log(result.data?.stderr);
+console.log(result.data?.exitCode);
+```
+
+**Options** on the request object: `command`, `cwd`, `env`, `timeout` (seconds).
+
+### Streaming
+
+Pass a **second argument** with handlers, or use **`execStream`**:
+
+```typescript
+await sandbox.exec(
+  { command: 'for i in 1 2 3; do echo $i; sleep 1; done' },
+  {
+    onStdout: (chunk) => console.log('out:', chunk),
+    onStderr: (chunk) => console.error('err:', chunk),
+    onExit: (r) => console.log('exit', r),
+    onError: (e) => console.error(e),
+    signal: abortController.signal,
+  },
+);
+```
+
+## Code interpreter (`runCode`)
+
+**`runCode`** returns **`CodeExecutionResult`**: fields live at the **top level** (no `.data` wrapper):
+
+| Field | Meaning |
+|-------|---------|
+| `success` | Overall success |
+| `stdout` / `stderr` | Combined streams |
+| `exitCode` | Process exit code |
+| `results` | Parsed output when applicable |
+| `logs` | e.g. per-line `stdout` / `stderr` arrays |
+
+```typescript
+const r = await sandbox.runCode('print(2 + 2)', { language: 'python' });
+console.log(r.stdout.trim(), r.success);
+```
+
+**Languages** commonly supported: `python`, `javascript`, `typescript`, `node`, `bash`, `sh` (confirm on your deployment).
+
+Streaming callbacks (`onStdout`, `onStderr`, …) are supported via the options object.
+
+## Background commands
+
+**`sandbox.commands`** uses **positional** arguments for `run`:
+
+```typescript
+const run = await sandbox.commands.run(
+  'npm run dev',
+  { NODE_ENV: 'development' }, // env (optional)
+  '/app',                        // cwd (optional)
+  0,                             // timeout; 0 = none
+);
+console.log(run.pid);
+
+const { processes } = await sandbox.commands.list();
+await sandbox.commands.wait(run.pid);
+await sandbox.commands.kill(run.pid);
+```
+
+**`connect(pid, handlers)`** attaches to a process stream (`onStdout`, `onStderr`, `onExit`, `onError`).
+
+See [Background commands](/core-concepts/background-commands) for REST paths and concepts.
+
+## File system (`sandbox.fs`)
+
+High-level operations include:
+
+- **Write:** `createFile`, `uploadFile`, `uploadFileStream`
+- **Read:** `downloadFile`, `downloadFileStream`, `headTail`
+- **Manage:** `deleteFile`, `listFiles`, `statFile`, `createDirectory`, `moveFile`, `copyFile`, `changePermissions`
+- **Search / size:** `searchFiles`, `folderSize`
+- **Archives:** `compressFile`, `extractArchive`
+
+List responses often expose entries on **`result.data?.files`** (check types for your SDK version).
+
+```typescript
+await sandbox.fs.uploadFile('/tmp/hello.txt', 'hello');
+const buf = await sandbox.fs.downloadFile('/tmp/hello.txt');
+```
+
+## File watching
+
+```typescript
+const watcher = await sandbox.fs.watch('/app', {
+  recursive: true,
+  onEvent: (ev) => console.log(ev.path, ev.type),
+  onError: (err) => console.error(err),
+  onClose: () => console.log('closed'),
+});
+watcher.close();
+```
+
+See [File watching](/core-concepts/file-watching) for the HTTP + WebSocket flow.
+
+## PTY (`sandbox.pty`)
+
+- **Ephemeral:** `connect({ onData, onError })`: temporary shell; `sendInput`, `close`.
+- **Persistent:** `createSession()` → use returned **`sessionId`** with `connect({ sessionId, … })`; sessions survive disconnect until deleted.
+- **Helpers:** `runCommand(cmd, { timeout, prompt })`, `resize(cols, rows)`, `list()`, `deleteSession(id)`.
+
+See [PTY](/core-concepts/pty) and the npm README for full examples.
+
+## Error handling
+
+API failures surface as thrown errors. Response bodies often include **`error`** and **`details`**: log both when debugging. The SDK may concatenate them into the error message.
+
+## Sub-clients summary
+
+| Property | Purpose |
+|----------|---------|
+| `sandbox.fs` | Files and directories |
+| `sandbox.pty` | Interactive terminals |
+| `sandbox.interpreter` | Same family of helpers as `runCode` |
+| `sandbox.commands` | Background processes |
+
+## Examples and building
+
+- **Runnable examples:** see the `@voidrun/sdk` repository `examples/` and **`scripts/run_all_examples.sh`** (uses `tsx`).  
+- **Build from source:** `npm run build` (ESM + CJS outputs).
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/getting-started/quickstart">
+    End-to-end first sandbox
+  </Card>
+  <Card title="Code execution" icon="terminal" href="/core-concepts/code-execution">
+    Exec, interpreter, timeouts
+  </Card>
+  <Card title="Python SDK" icon="python" href="/sdks/python">
+    Same concepts, snake_case API
+  </Card>
+  <Card title="API Reference" icon="api" href="/sdks/overview#interactive-api-reference">
+    OpenAPI tab in this docs site
+  </Card>
+</CardGroup>

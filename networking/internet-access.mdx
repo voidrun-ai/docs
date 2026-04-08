@@ -40,7 +40,7 @@ Completely disable outbound internet access for maximum security:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 
 // Create sandbox with internet disabled
 const sandbox = await vr.createSandbox({
@@ -67,20 +67,18 @@ import os
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
 
 # Create sandbox with internet disabled
-resp = vr.sandboxes.create(
+sandbox = vr.create_sandbox(
     name="isolated-sandbox",
     cpu=2,
     mem=2048
 )
-sandbox = resp.data
-
 # TODO: Verify exact method - network config may be via exec or dedicated API
 # Disable outbound internet (except DNS)
 sandbox.exec('iptables -A OUTPUT -p tcp --dport 80 -j DROP && iptables -A OUTPUT -p tcp --dport 443 -j DROP')
 
 # Verify internet is blocked
 result = sandbox.exec('curl -s --connect-timeout 5 https://google.com || echo "Internet blocked"')
-print(result.data.data.stdout)  # "Internet blocked"
+print(result.data.stdout)  # "Internet blocked"
 ```
 
 ```bash CLI
@@ -96,14 +94,14 @@ voidrun exec <sandbox-id> --command "curl -s --connect-timeout 5 https://google.
 
 ```bash cURL
 # Create sandbox
-curl -X POST "https://api.voidrun.com/v1/sandboxes" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name": "isolated-sandbox", "cpu": 2, "mem": 2048}'
 
 # Disable outbound internet
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "iptables -A OUTPUT -p tcp --dport 80 -j DROP && iptables -A OUTPUT -p tcp --dport 443 -j DROP"}'
 ```
@@ -117,7 +115,7 @@ Enable full internet access (default behavior):
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // TODO: Verify exact method - network config may be via exec or dedicated API
@@ -136,16 +134,14 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # TODO: Verify exact method - network config may be via exec or dedicated API
 # Enable outbound internet
 sandbox.exec('iptables -D OUTPUT -p tcp --dport 80 -j DROP 2>/dev/null; iptables -D OUTPUT -p tcp --dport 443 -j DROP 2>/dev/null; echo "Internet enabled"')
 
 # Verify internet works
 result = sandbox.exec('curl -s --connect-timeout 5 https://api.ipify.org')
-print("Public IP:", result.data.data.stdout)
+print("Public IP:", result.data.stdout)
 ```
 
 ```bash CLI
@@ -157,8 +153,8 @@ voidrun exec <sandbox-id> --command "curl -s --connect-timeout 5 https://api.ipi
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "iptables -D OUTPUT -p tcp --dport 80 -j DROP 2>/dev/null; iptables -D OUTPUT -p tcp --dport 443 -j DROP 2>/dev/null"}'
 ```
@@ -174,7 +170,7 @@ Configure allowlists to permit access only to specific domains or IPs:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.createSandbox({ cpu: 2, mem: 2048 });
 
 // TODO: Verify exact implementation for allowlists
@@ -216,9 +212,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.create(cpu=2, mem=2048)
-sandbox = resp.data
-
+sandbox = vr.create_sandbox(cpu=2, mem=2048)
 # TODO: Verify exact implementation for allowlists
 allowed_domains = [
     "api.github.com",
@@ -243,7 +237,7 @@ echo "Allowlist configured"
 
 # Test: allowed domain works
 allowed = sandbox.exec("curl -s --connect-timeout 5 https://api.github.com/zen")
-print("GitHub API:", allowed.data.data.stdout)
+print("GitHub API:", allowed.data.stdout)
 ```
 
 ```bash CLI
@@ -268,8 +262,8 @@ voidrun exec <sandbox-id> --command "curl -s https://api.github.com/zen"
 
 ```bash cURL
 # Configure allowlist
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "iptables -A OUTPUT -p tcp --dport 443 -j DROP && iptables -I OUTPUT -d $(dig +short api.github.com | head -1) -p tcp --dport 443 -j ACCEPT"}'
 ```
@@ -281,7 +275,7 @@ curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // TODO: Verify exact implementation
@@ -306,9 +300,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # TODO: Verify exact implementation
 allowed_ips = ["192.168.1.100", "10.0.0.50"]
 
@@ -333,8 +325,8 @@ iptables -I OUTPUT -d 10.0.0.50 -p tcp --dport 443 -j ACCEPT
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "iptables -A OUTPUT -p tcp --dport 443 -j DROP && iptables -I OUTPUT -d 192.168.1.100 -p tcp --dport 443 -j ACCEPT"}'
 ```
@@ -348,7 +340,7 @@ Configure blocklists to deny access to specific domains or IPs:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.createSandbox({ cpu: 2, mem: 2048 });
 
 // TODO: Verify exact implementation for blocklists
@@ -385,9 +377,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.create(cpu=2, mem=2048)
-sandbox = resp.data
-
+sandbox = vr.create_sandbox(cpu=2, mem=2048)
 # TODO: Verify exact implementation for blocklists
 blocked_domains = [
     "facebook.com",
@@ -407,7 +397,7 @@ echo "Blocklist configured"
 
 # Test: blocked domain fails
 blocked = sandbox.exec("curl -s --connect-timeout 5 https://facebook.com || echo 'Blocked'")
-print("Facebook:", blocked.data.data.stdout)  # "Blocked"
+print("Facebook:", blocked.data.stdout)  # "Blocked"
 ```
 
 ```bash CLI
@@ -424,8 +414,8 @@ voidrun exec <sandbox-id> --command "curl -s --connect-timeout 5 https://faceboo
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "iptables -A OUTPUT -d $(dig +short facebook.com | head -1) -j DROP"}'
 ```

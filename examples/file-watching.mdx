@@ -1,0 +1,116 @@
+---
+title: File watching
+description: Watch directories in a sandbox for create, modify, and delete events using fs.watch and the HTTP + WebSocket flow.
+---
+
+# Example: File watching
+
+You use this pattern when your app reacts to **filesystem changes** inside a sandbox: rebuild on save, tail new logs, trigger tests when files land in a folder. The high-level API is **`sandbox.fs.watch`**. Under the hood you start a watch session over HTTP and stream events over a WebSocket: see [File watching](/core-concepts/file-watching).
+
+## What you accomplish
+
+You register a **path** (and optionally **`recursive`**). You receive **events** with types and paths. You **close** the watcher when you finish. You remove the sandbox when you no longer need the VM.
+
+## Prerequisites
+
+You completed [Examples overview](/examples/overview). On **Python**, **`watch`** is **async**: you use **`AsyncVoidRun`**.
+
+## Pattern: TypeScript
+
+You pass **`onEvent`** and **`onError`**. You call **`close()`** on the watcher handle.
+
+```typescript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+const sandbox = await vr.createSandbox({ mem: 1024, name: 'watch-demo' });
+
+await sandbox.exec({ command: 'mkdir -p /app/src' });
+
+const watcher = await sandbox.fs.watch('/app', {
+  recursive: true,
+  onEvent: (event) => {
+    console.log(`[${event.type}] ${event.path}`);
+  },
+  onError: (err) => {
+    console.error('watch error', err);
+  },
+  onClose: () => {
+    console.log('watch closed');
+  },
+});
+
+// Simulate activity in another exec while the watch is active.
+await sandbox.exec({
+  command: 'echo hello > /app/src/hello.txt && sleep 1 && rm /app/src/hello.txt',
+  timeout: 30,
+});
+
+watcher.close();
+await sandbox.remove();
+```
+
+## Pattern: Python (async)
+
+You **`await sandbox.fs.watch`** inside an async context. You **`close()`** the watcher, then you remove the sandbox.
+
+```python
+import asyncio
+from functools import partial
+
+from voidrun import AsyncVoidRun
+
+
+async def main():
+    async with AsyncVoidRun() as vr:
+        sandbox = await vr.create_sandbox(mem=1024, name="watch-demo")
+
+        # Sandbox.exec is synchronous; offload so you do not block the event loop.
+        await asyncio.to_thread(sandbox.exec, "mkdir -p /app/src")
+
+        watcher = await sandbox.fs.watch(
+            "/app",
+            recursive=True,
+            on_event=lambda evt: print(evt.get("type"), evt.get("path")),
+            on_error=lambda err: print("watch error", err),
+        )
+
+        await asyncio.to_thread(
+            partial(
+                sandbox.exec,
+                "echo hello > /app/src/hello.txt && sleep 1 && rm /app/src/hello.txt",
+                timeout=30,
+            )
+        )
+
+        watcher.close()
+        await sandbox.remove_async()
+
+
+asyncio.run(main())
+```
+
+<Note>
+Prefer **`asyncio.to_thread`** around **`sandbox.exec`** in async handlers. Use **`*_async`** FS helpers (for example **`list_files_async`**) when the SDK exposes them.
+</Note>
+
+## How this maps to HTTP
+
+You start a session with **`POST /sandboxes/{id}/files/watch`**. You open **`WebSocket`** to **`/sandboxes/{id}/files/watch/{sessionId}/stream`**. You pass **`X-API-Key`** when your deployment requires it on upgrade. The SDK hides most of this: you fall back to raw HTTP when you debug.
+
+## Practices you should follow
+
+- You watch **narrow paths** (`/app/src` not `/`) when you can; broad recursive watches generate noise and load.
+- You **debounce** events in your app if you rebuild on every write.
+- You **close** watchers in **`finally`** blocks so you do not leak sessions.
+
+## Related guides
+
+<CardGroup cols={2}>
+  <Card title="File system" icon="folder" href="/core-concepts/file-system">
+    Upload, list, download
+  </Card>
+  <Card title="File watching concepts" icon="terminal" href="/core-concepts/file-watching">
+    HTTP + WebSocket flow
+  </Card>
+</CardGroup>

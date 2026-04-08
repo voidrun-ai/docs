@@ -30,7 +30,7 @@ VoidRun's MicroVM architecture provides a massive advantage over traditional con
 
 ## Running Docker
 
-Docker is pre-installed in VoidRun's `dcdeploy` template. You can run Docker commands immediately after creating a sandbox.
+Docker runs inside the sandbox when you use the **`docker`** [system image](/environments/custom-images#system-images) (Docker-in-Docker). It is larger (~20 GB) than **`code`** or **`max`**: allocate enough **CPU**, **memory**, and **disk**. Confirm versions with **`GET /images`** or the dashboard.
 
 ### Create a Docker-Enabled Sandbox
 
@@ -38,13 +38,12 @@ Docker is pre-installed in VoidRun's `dcdeploy` template. You can run Docker com
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 
-// Create sandbox with Docker pre-installed
-// TODO: Verify exact templateId for Docker-enabled image
+// Create sandbox with Docker pre-installed (image name may vary by deployment)
 const sandbox = await vr.createSandbox({
   name: 'docker-sandbox',
-  templateId: 'dcdeploy', // Docker-enabled template
+  image: 'docker',
   cpu: 4,
   mem: 4096 // 4GB RAM recommended for Docker workloads
 });
@@ -64,28 +63,25 @@ import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
 
-# Create sandbox with Docker pre-installed
-# TODO: Verify exact template_id for Docker-enabled image
-resp = vr.sandboxes.create(
+# Create sandbox with Docker pre-installed (image name may vary by deployment)
+sandbox = vr.create_sandbox(
     name="docker-sandbox",
-    template_id="dcdeploy",  # Docker-enabled template
+    image="docker",
     cpu=4,
     mem=4096  # 4GB RAM recommended for Docker workloads
 )
-sandbox = resp.data
-
 # Verify Docker is running
 docker_check = sandbox.exec("docker --version")
-print("Docker version:", docker_check.data.data.stdout)
+print("Docker version:", docker_check.data.stdout)
 
 # Check Docker daemon status
 daemon_status = sandbox.exec("systemctl status docker --no-pager")
-print("Docker daemon:", daemon_status.data.data.stdout)
+print("Docker daemon:", daemon_status.data.stdout)
 ```
 
 ```bash CLI
 # Create sandbox with Docker pre-installed
-voidrun create --name docker-sandbox --template dcdeploy --cpu 4 --mem 4096
+voidrun create --name docker-sandbox --template docker --cpu 4 --mem 4096
 
 # Verify Docker is running
 voidrun exec <sandbox-id> --command "docker --version"
@@ -96,14 +92,14 @@ voidrun exec <sandbox-id> --command "systemctl status docker --no-pager"
 
 ```bash cURL
 # Create sandbox
-curl -X POST "https://api.voidrun.com/v1/sandboxes" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"name": "docker-sandbox", "templateId": "dcdeploy", "cpu": 4, "mem": 4096}'
+  -d '{"name": "docker-sandbox", "image": "docker", "cpu": 4, "mem": 4096}'
 
 # Verify Docker is running
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "docker --version"}'
 ```
@@ -115,7 +111,7 @@ curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Pull and run an nginx container
@@ -138,20 +134,18 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Pull and run an nginx container
 run_result = sandbox.exec("docker run -d --name nginx -p 80:80 nginx:latest")
-print("Container started:", run_result.data.data.stdout)
+print("Container started:", run_result.data.stdout)
 
 # List running containers
 list_result = sandbox.exec("docker ps")
-print("Running containers:", list_result.data.data.stdout)
+print("Running containers:", list_result.data.stdout)
 
 # Test nginx is responding
 test_result = sandbox.exec("curl -s http://localhost:80")
-print("Nginx response:", test_result.data.data.stdout[:100])
+print("Nginx response:", test_result.data.stdout[:100])
 ```
 
 ```bash CLI
@@ -166,8 +160,8 @@ voidrun exec <sandbox-id> --command "curl -s http://localhost:80"
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "docker run -d --name nginx -p 80:80 nginx:latest"}'
 ```
@@ -179,7 +173,7 @@ curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Create a Docker network
@@ -210,9 +204,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Create a Docker network
 sandbox.exec("docker network create app-network")
 
@@ -227,7 +219,7 @@ sandbox.exec("docker run -d --name app --network app-network -p 3000:3000 myapp:
 
 # Verify all containers are running
 result = sandbox.exec('docker ps --format "table {{.Names}}\t{{.Status}}"')
-print(result.data.data.stdout)
+print(result.data.stdout)
 ```
 
 ```bash CLI
@@ -248,8 +240,8 @@ voidrun exec <sandbox-id> --command "docker ps"
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "docker network create app-network && docker run -d --name postgres --network app-network -e POSTGRES_PASSWORD=secret postgres:15"}'
 ```
@@ -269,12 +261,12 @@ K3s requires significant resources. We recommend allocating at least **4 CPU cor
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 
 // Create sandbox with sufficient resources for K3s
 const sandbox = await vr.createSandbox({
   name: 'k3s-sandbox',
-  templateId: 'dcdeploy',
+  image: 'docker',
   cpu: 4,
   mem: 8192 // 8GB RAM for K3s
 });
@@ -305,18 +297,16 @@ import time
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
 
 # Create sandbox with sufficient resources for K3s
-resp = vr.sandboxes.create(
+sandbox = vr.create_sandbox(
     name="k3s-sandbox",
-    template_id="dcdeploy",
+    image="docker",
     cpu=4,
     mem=8192  # 8GB RAM for K3s
 )
-sandbox = resp.data
-
 # Install K3s
 print("Installing K3s (this may take a minute)...")
 install_result = sandbox.exec("curl -sfL https://get.k3s.io | sh -", timeout=120)
-print("K3s installed:", install_result.data.data.stdout)
+print("K3s installed:", install_result.data.stdout)
 
 # Wait for K3s to be ready
 time.sleep(10)
@@ -324,12 +314,12 @@ sandbox.exec("systemctl status k3s --no-pager")
 
 # Verify K3s is running
 status_result = sandbox.exec("kubectl get nodes")
-print("K3s nodes:", status_result.data.data.stdout)
+print("K3s nodes:", status_result.data.stdout)
 ```
 
 ```bash CLI
 # Create sandbox with sufficient resources
-voidrun create --name k3s-sandbox --template dcdeploy --cpu 4 --mem 8192
+voidrun create --name k3s-sandbox --template docker --cpu 4 --mem 8192
 
 # Install K3s
 voidrun exec <sandbox-id> --command "curl -sfL https://get.k3s.io | sh -" --timeout 120
@@ -343,8 +333,8 @@ voidrun exec <sandbox-id> --command "kubectl get nodes"
 
 ```bash cURL
 # Install K3s
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "curl -sfL https://get.k3s.io | sh -", "timeout": 120}'
 ```
@@ -356,7 +346,7 @@ curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Create a deployment
@@ -386,9 +376,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Create a deployment
 sandbox.exec("kubectl create deployment nginx --image=nginx:latest")
 
@@ -400,11 +388,11 @@ sandbox.exec("kubectl expose deployment nginx --port=80 --target-port=80 --type=
 
 # Check pods are running
 pods_result = sandbox.exec("kubectl get pods -o wide")
-print("Pods:", pods_result.data.data.stdout)
+print("Pods:", pods_result.data.stdout)
 
 # Get services
 svc_result = sandbox.exec("kubectl get svc")
-print("Services:", svc_result.data.data.stdout)
+print("Services:", svc_result.data.stdout)
 ```
 
 ```bash CLI
@@ -422,8 +410,8 @@ voidrun exec <sandbox-id> --command "kubectl get pods -o wide"
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "kubectl create deployment nginx --image=nginx:latest"}'
 ```
@@ -450,7 +438,7 @@ Running nested containers and Kubernetes requires careful resource planning. Ins
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Check system resources
@@ -474,19 +462,17 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Check system resources
 mem_info = sandbox.exec("free -h")
-print("Memory:", mem_info.data.data.stdout)
+print("Memory:", mem_info.data.stdout)
 
 cpu_info = sandbox.exec("nproc && cat /proc/loadavg")
-print("CPU:", cpu_info.data.data.stdout)
+print("CPU:", cpu_info.data.stdout)
 
 # Check Docker resource usage
 docker_stats = sandbox.exec("docker stats --no-stream")
-print("Docker stats:", docker_stats.data.data.stdout)
+print("Docker stats:", docker_stats.data.stdout)
 ```
 
 ```bash CLI
@@ -504,8 +490,8 @@ voidrun exec <sandbox-id> --command "df -h"
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "free -h && df -h"}'
 ```
@@ -519,7 +505,7 @@ Remove containers and free resources when done:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
 // Stop and remove all Docker containers
@@ -540,9 +526,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.get("sandbox-id")
-sandbox = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Stop and remove all Docker containers
 sandbox.exec("docker stop $(docker ps -aq) 2>/dev/null || true")
 sandbox.exec("docker rm $(docker ps -aq) 2>/dev/null || true")
@@ -566,8 +550,8 @@ voidrun exec <sandbox-id> --command "docker image prune -af && docker volume pru
 ```
 
 ```bash cURL
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "docker stop $(docker ps -aq) 2>/dev/null; docker rm $(docker ps -aq) 2>/dev/null; docker image prune -af"}'
 ```

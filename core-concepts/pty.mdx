@@ -1,0 +1,44 @@
+---
+title: PTY (interactive terminals)
+description: Ephemeral and session-based pseudo-terminals over WebSocket, aligned with the VoidRun API and SDKs.
+---
+
+# PTY (interactive terminals)
+
+VoidRun exposes **pseudo-terminal (PTY)** access over **WebSocket** so you can run interactive shells, REPLs, and full-screen TUIs inside a sandbox. The canonical contract is in **OpenAPI** under the **PTY** tag (paths like `/sandboxes/{id}/pty` and `/sandboxes/{id}/pty/sessions/{sessionId}`).
+
+## When to use PTY vs `exec`
+
+| Approach | Best for |
+|----------|----------|
+| **`sandbox.exec` / `run_code`** | One-shot commands, scripts, CI, structured stdout/stderr |
+| **PTY** | Interactive sessions, raw terminal control, persistent shells |
+
+See [Code execution](/core-concepts/code-execution) for exec and streaming exec.
+
+## HTTP and WebSocket flow (overview)
+
+1. Create or resume a sandbox.
+2. For a **durable session**, create a PTY session via the REST API (see **API Reference** → PTY).
+3. Open the **WebSocket** URL documented in OpenAPI for that session (or the ephemeral PTY endpoint, depending on your use case).
+4. Send/receive terminal data over the socket; resize and lifecycle operations follow the spec.
+
+Exact query parameters, upgrade headers, and message framing are defined in **`docs/openapi/voidrun.yml`** (synced from `voidrun/openapi.yml`).
+
+## SDKs
+
+- **TypeScript:** high-level **`PTY`** / **`PtySession`** on the sandbox object (see [`@voidrun/sdk` README](https://www.npmjs.com/package/@voidrun/sdk)).
+- **Python:** matching helpers on the sandbox / client (see [`voidrun` on PyPI](https://pypi.org/project/voidrun/) README).
+
+Prefer the SDK when possible; it sets **`X-API-Key`** and the default hosted API base (same as OpenAPI **`servers`**) from **`VR_API_KEY`** alone. For **self-hosted** APIs, override with **`VR_API_URL`** or **`baseUrl` / `base_url`**: see [Self-hosted deployments](/advanced/self-hosted).
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="api" href="/sdks/overview#interactive-api-reference">
+    OpenAPI PTY operations and WebSocket URLs.
+  </Card>
+  <Card title="Code execution" icon="terminal" href="/core-concepts/code-execution">
+    Non-interactive exec and interpreter usage.
+  </Card>
+</CardGroup>

@@ -1,0 +1,254 @@
+---
+title: Python SDK
+description: "Install, configure, and use voidrun: sync and async clients, sandboxes, exec, interpreter, files, PTY, and background commands."
+---
+
+# Python SDK (`voidrun`)
+
+The official **Python 3.9+** client for VoidRun: Pydantic models, generated OpenAPI client under `voidrun.api_client`, and high-level names aligned with the [TypeScript SDK](/sdks/typescript). This page is a structured reference; the [PyPI readme](https://pypi.org/project/voidrun/) and repo `examples/` contain the full script catalog.
+
+<CardGroup cols={2}>
+  <Card title="PyPI" icon="boxes" href="https://pypi.org/project/voidrun/">
+    Package and versions
+  </Card>
+  <Card title="Hub" icon="book" href="/sdks/overview">
+    Auth, base URL, REST overview
+  </Card>
+</CardGroup>
+
+## Requirements and install
+
+- **Python 3.9+**  
+- Dependencies include **httpx**, **Pydantic v2**, **websockets**, etc. (see `pyproject.toml` in the repo)
+
+```bash
+pip install voidrun
+```
+
+Editable install for development:
+
+```bash
+cd py-sdk && pip install -e .
+```
+
+## Configuration
+
+You need an **API key**. The **API base URL** defaults to the same hosted endpoint as the TypeScript SDK (**`DEFAULT_API_BASE_URL`**, aligned with OpenAPI **`servers`**). You set **`VR_API_URL`** / **`API_URL`** or **`base_url=`** only when you use a **self-hosted** API: see [Self-hosted deployments](/advanced/self-hosted).
+
+```python
+from voidrun import VoidRun
+
+vr = VoidRun(
+    api_key="...",  # optional if VR_API_KEY or API_KEY is set
+)
+```
+
+| Variable | Role |
+|----------|------|
+| `VR_API_KEY` or `API_KEY` | API key |
+| `VR_API_URL` or `API_URL` | *(Self-hosted only.)* Overrides the default API base URL |
+| `VR_ORG_ID` | Optional default org id |
+
+### Exported defaults
+
+Aligned with `@voidrun/sdk`:
+
+| Constant | Value | Meaning |
+|----------|-------|---------|
+| `DEFAULT_API_BASE_URL` | `https://platform.void-run.com/api` | Default API host (strip trailing slash in client) |
+| `DEFAULT_SANDBOX_IMAGE` | `"code"` | Default `image` when creating a sandbox |
+| `DEFAULT_SANDBOX_CPU` | `1` | Default CPU count |
+| `DEFAULT_SANDBOX_MEM` | `1024` | Default memory (MB) |
+
+```python
+from voidrun import (
+    DEFAULT_API_BASE_URL,
+    DEFAULT_SANDBOX_IMAGE,
+    DEFAULT_SANDBOX_CPU,
+    DEFAULT_SANDBOX_MEM,
+)
+```
+
+## Clients: `VoidRun` and `AsyncVoidRun`
+
+| Method | Sync | Async |
+|--------|------|-------|
+| Create sandbox | `create_sandbox(...)` | `await create_sandbox(...)` |
+| Get sandbox | `get_sandbox(id)` | `await get_sandbox(id)` |
+| List sandboxes | `list_sandboxes(page=, limit=)` | `await list_sandboxes(...)` |
+| Remove by id | `remove_sandbox(id)` | `await remove_sandbox(id)` |
+
+**`list_sandboxes`** returns **`ListSandboxesResult`**:
+
+- **`.sandboxes`**: list of **`Sandbox`** instances  
+- **`.meta`**: **`ListSandboxesMeta`**: `total`, `page`, `limit`, `total_pages` (snake_case)
+
+`AsyncVoidRun` supports **`async with`** and **`aclose()`** for cleanup (including the thread pool used for API calls).
+
+### Context managers
+
+- **Sync:** `with vr.create_sandbox(...) as sandbox:` → **`remove()`** on exit  
+- **Async:** `async with await vr.create_sandbox(...) as sandbox:` → **`remove_async()`** on exit  
+
+## Sandbox lifecycle
+
+On **`Sandbox`**: `start` / `stop` / `pause` / `resume` (and `*_async` where applicable), **`remove()`** / **`remove_async()`**, **`info()`** (returns `self`). Deprecated aliases **`delete`** / **`delete_async`** map to remove.
+
+Notable attributes include **`id`**, **`name`**, **`cpu`**, **`mem`**, **`status`**, **`image`**, **`env_vars`**, **`region`**, **`org_id`**, etc.
+
+## Shell execution (`exec`)
+
+You can pass a **string**, keyword args, or a generated **`ExecRequest`**:
+
+```python
+from voidrun.api_client.models.exec_request import ExecRequest
+
+sandbox.exec("uname -a")
+sandbox.exec(command="pwd", cwd="/tmp", timeout=60)
+sandbox.exec(ExecRequest(command="ls", cwd="/"))
+```
+
+**Return type:** **`VoidRunResponse[ExecResponseData]`**: the HTTP envelope is unwrapped so **`.data`** is already **`ExecResponseData`**:
+
+```python
+r = sandbox.exec('echo "hi"')
+print(r.data.stdout, r.data.stderr, r.data.exit_code)
+```
+
+Use **`.data.stdout`** / **`.data.stderr`** / **`.data.exit_code`**: not **`.data.data.*`** (single `.data`).
+
+### Streaming (`exec_stream`)
+
+Provide **`on_stdout`**, **`on_stderr`**, **`on_exit`**, **`on_error`** for SSE-style streaming.
+
+## Code interpreter (`run_code` / `interpreter`)
+
+**`sandbox.run_code(code, language=..., ...)`** and **`sandbox.interpreter.run(...)`** return **`CodeExecutionResult`** directly (**no** extra `.data` wrapper):
+
+| Field | Type | Notes |
+|-------|------|--------|
+| `success` | `bool` | Derived from exit behavior |
+| `stdout` / `stderr` | `str` | Combined streams |
+| `exit_code` | `int \| None` | Process exit code |
+| `results` | `Any` | Parsed output when applicable |
+| `error` | `str \| None` | Error hint |
+| `logs` | `dict` | Often line lists per stream |
+
+```python
+result = sandbox.run_code("print(2 + 2)", language="python")
+print(result.stdout.strip(), result.success)
+```
+
+**Languages** (typical): `python`, `javascript`, `typescript`, `node`, `bash`, `sh`: confirm on your deployment.
+
+## Background commands
+
+```python
+run_result = sandbox.commands.run(
+    "sleep 5 && echo done",
+    {"DEBUG": "true"},  # env (optional)
+    "/tmp",              # cwd (optional)
+    0,                   # timeout; 0 = none
+)
+pid = run_result.data.pid
+
+sandbox.commands.list()       # .data is the process list payload
+sandbox.commands.wait(pid)
+sandbox.commands.kill(pid)
+sandbox.commands.connect(pid, on_stdout=..., on_stderr=..., on_exit=...)
+```
+
+See [Background commands](/core-concepts/background-commands).
+
+## File system (`sandbox.fs`)
+
+Snake_case methods mirror the TS surface, for example:
+
+- **Write:** `create_file`, `upload_file`, `upload_file_from_path`  
+- **Read:** `download_file`  
+- **Manage:** `delete_file`, `list_files`, `stat_file`, `create_directory`, `move_file`, `copy_file`, `change_permissions`  
+- **Utilities:** `head_tail`, `search_files`, `disk_usage`  
+- **Archives:** `compress_file`, `extract_archive`  
+
+```python
+sandbox.fs.upload_file("/tmp/hello.txt", "Hello")
+data = sandbox.fs.download_file("/tmp/hello.txt")
+listing = sandbox.fs.list_files("/tmp")
+files = listing.data
+```
+
+## File watching (async)
+
+**`sandbox.fs.watch`** is **async**: use **`AsyncVoidRun`** and **`await sandbox.fs.watch(...)`**:
+
+```python
+watcher = await sandbox.fs.watch(
+    "/app",
+    recursive=True,
+    on_event=lambda evt: print(evt.get("path"), evt.get("type")),
+    on_error=lambda err: print("watch error:", err),
+)
+# ...
+watcher.close()
+```
+
+See [File watching](/core-concepts/file-watching).
+
+## PTY (`sandbox.pty`)
+
+- **`await connect(...)`** (async): ephemeral or persistent (`session_id=`).  
+- **`create_session()`** / **`create_session_async()`**: persistent session; read **`session_id`** from the nested response model (typically **`resp.data.data.session_id`** on the Pydantic envelope; inspect types if your spec differs).  
+- **`run_command`**, **`resize`**, **`list`**, **`delete_session`**.
+
+Full patterns: [PTY](/core-concepts/pty) and the package README.
+
+## Naming: snake_case and camelCase
+
+**`create_sandbox`** accepts **snake_case** kwargs aligned with Python; many options also accept **camelCase** aliases (e.g. **`env_vars`** / **`envVars`**) where the client documents them.
+
+## Error handling
+
+Failures raise **`ApiException`** (and related) from **`voidrun.api_client.rest`** with HTTP status and body. Parse **`error`** and **`details`** from JSON bodies when present.
+
+```python
+from voidrun.api_client.rest import ApiException
+
+try:
+    vr.get_sandbox("nonexistent-id")
+except ApiException as e:
+    print(e.status, e.body)
+```
+
+## Runnable examples and tests
+
+From the **`py-sdk`** repo root (with **`PYTHONPATH`** set, e.g. to the package root):
+
+```bash
+export VR_API_KEY="..."
+
+./scripts/run_all_examples.sh   # exits 1 if any script fails
+python3 examples/sync_usage.py
+```
+
+**Tests:** `pytest tests/` or `hatch run test`.
+
+## OpenAPI regeneration
+
+Regenerate **`voidrun.api_client`** when **`voidrun/openapi.yml`** changes. After regen, confirm **sandbox `status`** enum values still match the live server (`running`, `stopped`, `paused`, `error`, `killed`, …).
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/getting-started/quickstart">
+    End-to-end first sandbox
+  </Card>
+  <Card title="Code execution" icon="terminal" href="/core-concepts/code-execution">
+    Exec, interpreter, timeouts
+  </Card>
+  <Card title="TypeScript SDK" icon="code" href="/sdks/typescript">
+    Same concepts, camelCase API
+  </Card>
+  <Card title="API Reference" icon="api" href="/sdks/overview#interactive-api-reference">
+    OpenAPI tab in this docs site
+  </Card>
+</CardGroup>

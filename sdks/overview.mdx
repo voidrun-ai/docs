@@ -1,0 +1,126 @@
+---
+title: SDKs & API
+description: Official TypeScript and Python SDKs, authentication, base URLs, and how they map to the VoidRun REST API.
+---
+
+# SDKs & API
+
+This page is the **integration hub** for VoidRun: packages to install, how to authenticate, how SDKs relate to the HTTP API, and where to go next. Use it together with the [Quickstart](/getting-started/quickstart) and [Code execution](/core-concepts/code-execution) guides.
+
+## Official SDKs
+
+| Runtime | Package | Install |
+|--------|---------|---------|
+| Node.js (ESM + TypeScript) | [`@voidrun/sdk`](https://www.npmjs.com/package/@voidrun/sdk) | `npm install @voidrun/sdk` |
+| Python 3.9+ | [`voidrun`](https://pypi.org/project/voidrun/) | `pip install voidrun` |
+
+Both SDKs are generated from and aligned with the same **OpenAPI** description as the VoidRun service. For low-level request/response shapes, use the generated types in each package or the OpenAPI document shipped with the server.
+
+## Authentication
+
+Authenticated endpoints expect your API key on every request:
+
+```http
+X-API-Key: <your-api-key>
+```
+
+Use this header for direct `curl` or custom HTTP clients. The official SDKs attach it for you when you configure an API key.
+
+<Warning>
+Do not assume `Authorization: Bearer …` unless your operator explicitly documents it. The public OpenAPI spec describes **ApiKey** auth via **`X-API-Key`**.
+</Warning>
+
+### Environment variables
+
+Typical configuration for the **hosted** VoidRun platform:
+
+| Variable | Purpose |
+|----------|---------|
+| `VR_API_KEY` or `API_KEY` | API key (Python accepts either; TypeScript reads `VR_API_KEY` when constructing `VoidRun`). |
+| `VR_ORG_ID` | Optional default organization id (Python) when your setup requires it. |
+
+Both SDKs use the **same packaged default API base URL** as OpenAPI **`servers`** (see **API Reference**) when you do not override it.
+
+**Self-hosted:** set **`VR_API_URL`** or **`API_URL`**, or pass **`baseUrl` / `base_url=`**, to your deployment’s API root. See [Self-hosted deployments](/advanced/self-hosted).
+
+## Base URL and paths
+
+- The **base URL** is the prefix for all REST routes (no trailing slash issues: follow the SDK README).
+- Path segments (e.g. `/sandboxes`, `/sandboxes/{id}/exec`) are defined in OpenAPI. Older examples sometimes used `/v1` or a different host; **confirm the base URL in your dashboard or deployment docs**.
+
+## REST API overview
+
+- **Contract:** OpenAPI 3 describes sandboxes, execution, filesystem, PTY, background commands, watch endpoints, and error models.
+- **Success payloads** often use a wrapper with a nested `data` object; SDKs may unwrap one level for ergonomics (see below).
+- **Errors:** JSON bodies commonly include **`error`** and **`details`**. Log both when debugging; SDKs increasingly concatenate them into thrown error messages.
+
+### Interactive API Reference
+
+This documentation site includes an **API Reference** tab generated from a bundled copy of the spec at **`docs/openapi/voidrun.yml`** (synced from `voidrun/openapi.yml` in the monorepo: refresh the copy when the canonical spec changes). The spec’s **`servers`** entry (e.g. `https://platform.void-run.com/api`) drives the API playground base URL.
+
+## Documentation coverage (roadmap)
+
+The table below tracks common gaps called out in a recent docs audit. It is **not** a promise of priority: use it for planning.
+
+| Topic | Status |
+|-------|--------|
+| Dead `/sdks/typescript` / `/api-reference/overview` links | **Addressed**: this hub + **[TypeScript](/sdks/typescript)** / **[Python](/sdks/python)** guides + **API Reference** tab. |
+| Navbar logos missing | **Addressed**: Navbar uses `docs/logo/on-light-theme.svg` and `on-dark-theme.svg` (icon + **VoidRun** as `<text>` with **`ui-sans-serif, system-ui, sans-serif`** plus emoji fallbacks—same stack as [void-run.com](https://void-run.com) / Tailwind default sans). If a browser paints no text for SVG-as-`<img>`, revert to outlined paths. Mintlify maps **`logo.light`** to the asset for **dark UI** and **`logo.dark`** to the asset for **light UI** (see [Maple settings](https://maple.mintlify.app/essentials/settings)). Favicon: `/favicon.png` from [void-run.com](https://void-run.com) `/icon`. |
+| OpenAPI wired for Mintlify | **Addressed**: `navigation.tabs` + `openapi/voidrun.yml`. |
+| Host/path consistency (`/v1` vs `/api`, `Bearer` vs `X-API-Key`, dashboard URLs) | **Addressed** in guides: default base URL in OpenAPI/SDKs, `X-API-Key`, **`VR_API_KEY`**; **`VR_API_URL`** documented for self-hosted only. |
+| Dedicated guides: PTY, background commands, file watch | **Addressed**: short guides under Core Concepts / Advanced; OpenAPI remains canonical for request shapes. |
+| Self-hosted deployments | **Stub**: [Self-hosted deployments](/advanced/self-hosted) for base URL and operator-specific notes. |
+| Code samples in Introduction / Quickstart / core MDX | **Addressed**: aligned with current SDK method names, `image` field, single `.data` for exec, interpreter fields at top level. |
+
+## Language SDK guides
+
+Detailed sections (install, config, return shapes, filesystem, PTY, background commands, examples) live on dedicated pages. The npm/PyPI READMEs remain the long-form reference with every method variant.
+
+<CardGroup cols={2}>
+  <Card title="TypeScript SDK" icon="node-js" href="/sdks/typescript">
+    `@voidrun/sdk`: ESM, `exec` + `runCode`, camelCase, packaged default base URL.
+  </Card>
+  <Card title="Python SDK" icon="python" href="/sdks/python">
+    `voidrun`: `VoidRun` / `AsyncVoidRun`, snake_case, same default base URL as TypeScript, `VoidRunResponse` / `CodeExecutionResult`.
+  </Card>
+</CardGroup>
+
+### Quick comparison
+
+| Topic | TypeScript | Python |
+|-------|------------|--------|
+| Package | [`@voidrun/sdk`](https://www.npmjs.com/package/@voidrun/sdk) | [`voidrun`](https://pypi.org/project/voidrun/) |
+| Base URL if env unset | Packaged default (`BASE_PATH`) | Packaged default (`DEFAULT_API_BASE_URL`, same host) |
+| Shell exec result | `result.data?.stdout` (under `ExecResponse`) | `result.data.stdout` (inner payload on `VoidRunResponse`) |
+| Interpreter result | `result.stdout` on `CodeExecutionResult` | `result.stdout` on `CodeExecutionResult` |
+| Async | `async`/`await` throughout | `AsyncVoidRun` + `*_async` where applicable |
+
+## Features implemented in SDKs
+
+Short guides on this site (OpenAPI + SDK READMEs remain authoritative for every field):
+
+- **[PTY](/core-concepts/pty)**: interactive and persistent terminal sessions  
+- **[Background commands](/core-concepts/background-commands)**: run, list, attach streams, wait, kill  
+- **[File watching](/core-concepts/file-watching)**: live filesystem events over WebSocket  
+
+Use the SDK READMEs and `examples/` directories for copy-pastable patterns.
+
+## Related docs
+
+<CardGroup cols={2}>
+  <Card title="Examples" icon="lightbulb" href="/examples/overview">
+    Detailed walkthroughs: interpreter, CI, ETL, PTY, file watch, list/cleanup, and more.
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/getting-started/quickstart">
+    Install, auth env vars, and first sandbox end-to-end.
+  </Card>
+  <Card title="Code execution" icon="terminal" href="/core-concepts/code-execution">
+    Commands, interpreter, and execution concepts.
+  </Card>
+  <Card title="Sandbox lifecycle" icon="arrows-rotate" href="/core-concepts/lifecycle">
+    Run, pause, sleep, resume, and cleanup.
+  </Card>
+  <Card title="File system" icon="folder" href="/core-concepts/file-system">
+    Upload, download, and persistence inside a sandbox.
+  </Card>
+</CardGroup>

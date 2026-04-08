@@ -39,7 +39,7 @@ VoidRun provides isolated MicroVM environments designed for AI workloads and dev
     Interact with sandboxes via VNC and SSH for debugging and development.
   </Card>
   <Card title="🔑 Simple Auth" icon="key">
-    Bearer token authentication via `VOIDRUN_API_KEY` environment variable or SDK options.
+    API key authentication via the `X-API-Key` header; SDKs use `VR_API_KEY` (see [SDKs and API](/sdks/overview)). Self-hosted: override the API base URL with `VR_API_URL` or constructor options.
   </Card>
 </CardGroup>
 
@@ -72,7 +72,7 @@ Build AI agents that can safely execute generated code in isolated environments:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.createSandbox({ cpu: 2, mem: 2048 });
 
 // Execute AI-generated code safely
@@ -94,8 +94,7 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.create(cpu=2, mem=2048)
-sandbox = resp.data
+sandbox = vr.create_sandbox(cpu=2, mem=2048)
 
 # Execute AI-generated code safely
 result = sandbox.run_code("""
@@ -107,8 +106,8 @@ def calculate_fibonacci(n):
 print(calculate_fibonacci(10))
 """, language="python")
 
-print(result.data.stdout)
-sandbox.delete()
+print(result.stdout)
+sandbox.remove()
 ```
 
 ```bash CLI
@@ -124,14 +123,14 @@ voidrun delete <sandbox-id>
 
 ```bash cURL
 # Create sandbox
-curl -X POST https://api.voidrun.com/v1/sandboxes \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST https://platform.void-run.com/api/sandboxes \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"cpu": 2, "mem": 2048}'
 
 # Execute code (replace <sandbox-id> with actual ID)
-curl -X POST https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "python3 -c \"print(\\\"Hello from VoidRun\\\")\""}'
 ```
@@ -145,9 +144,9 @@ Spin up ephemeral development environments with custom tooling:
 ```typescript TypeScript
 import { VoidRun } from '@voidrun/sdk';
 
-const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.createSandbox({ 
-  templateId: 'node:20',
+  image: 'code',
   cpu: 4, 
   mem: 4096 
 });
@@ -162,29 +161,27 @@ from voidrun import VoidRun
 import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-resp = vr.sandboxes.create(
-    template_id="node:20",
+sandbox = vr.create_sandbox(
+    image="code",
     cpu=4,
     mem=4096
 )
-sandbox = resp.data
-
 # Install dependencies and run tests
 sandbox.exec("npm install && npm test")
-sandbox.delete()
+sandbox.remove()
 ```
 
 ```bash CLI
-voidrun create --template node:20 --cpu 4 --mem 4096
+voidrun create --template code --cpu 4 --mem 4096
 voidrun exec <sandbox-id> --command "npm install && npm test"
 voidrun delete <sandbox-id>
 ```
 
 ```bash cURL
-curl -X POST https://api.voidrun.com/v1/sandboxes \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST https://platform.void-run.com/api/sandboxes \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"templateId": "node:20", "cpu": 4, "mem": 4096}'
+  -d '{"image": "code", "cpu": 4, "mem": 4096}'
 ```
 </CodeGroup>
 
@@ -205,11 +202,14 @@ Ready to start building? Check out the [Quickstart Guide](/getting-started/quick
 </Note>
 
 <CardGroup cols={2}>
-  <Card title="SDK Reference" icon="code" href="/sdks/typescript">
-    Explore the TypeScript and Python SDKs.
+  <Card title="Examples" icon="lightbulb" href="/examples/overview">
+    Step-by-step sandbox patterns (interpreter, CI, ETL, PTY, watch, cleanup), each on its own page.
   </Card>
-  <Card title="API Reference" icon="api" href="/api-reference/overview">
-    View the complete REST API documentation.
+  <Card title="SDKs & API" icon="code" href="/sdks/overview">
+    TypeScript and Python packages, auth headers, env vars, and REST overview.
+  </Card>
+  <Card title="OpenAPI & HTTP" icon="api" href="/sdks/overview#rest-api-overview">
+    How the REST API relates to the SDKs and error payloads.
   </Card>
 </CardGroup>
 

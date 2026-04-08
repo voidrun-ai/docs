@@ -1,0 +1,43 @@
+---
+title: Examples overview
+description: Hands-on VoidRun sandbox patterns, one guide per scenario with TypeScript and Python walkthroughs.
+---
+
+# Examples
+
+You use these guides when you already know [how to authenticate](/sdks/overview) and want **copy-adaptable patterns** for real products. Each example lives on its own page so you can follow it end to end without scrolling through unrelated scenarios.
+
+## What you need first
+
+Before you run the code on any example page, you complete this checklist:
+
+1. You create an API key in the [dashboard](https://dash.void-run.com) (or your operator issues one).
+2. You set **`VR_API_KEY`** in your environment.
+3. On the **hosted** platform you rely on the SDK default API host (same as OpenAPI **`servers`**). For **self-hosted** deployments you set **`VR_API_URL`** / **`API_URL`** or **`baseUrl` / `base_url=`**: see [Self-hosted deployments](/advanced/self-hosted).
+4. You install **`@voidrun/sdk`** or **`voidrun`** as described in the [Quickstart](/getting-started/quickstart).
+
+<Note>
+On the hosted VoidRun platform, valid **system images** are **`code`**, **`max`**, and **`docker`** (see [System images](/environments/custom-images#system-images)). You confirm names and versions with **`GET /images`** or the dashboard. Self-hosted deployments may differ.
+</Note>
+
+## How this tab is organized
+
+Each row below links to a **standalone guide**. You open the guide that matches your goal; you do not need to read the others first.
+
+| Guide | You use it when… |
+|-------|------------------|
+| [AI code interpreter](/examples/ai-code-interpreter) | You run LLM-generated snippets and need structured output and teardown. |
+| [CI test runner](/examples/ci-test-runner) | You gate merges on shell commands and exit codes inside a sandbox. |
+| [GitHub Actions](/examples/github-actions) | You run VoidRun from workflows (secrets, streaming exec, cleanup; see `image-builder` reference script). |
+| [Ephemeral dev environment](/examples/ephemeral-dev-environment) | You want a throwaway VM with Node or Python and no local install mess. |
+| [Untrusted user code](/examples/untrusted-user-code) | End users submit code; you isolate runs and enforce policy. |
+| [File ingest and ETL](/examples/file-ingest-etl) | You upload data, transform it in the VM, and download results. |
+| [Multi-step job](/examples/multi-step-job) | Several commands share one filesystem in a single sandbox. |
+| [Background process](/examples/background-process) | A command outlives one `exec` request (workers, dev servers). |
+| [Interactive PTY](/examples/interactive-pty) | You need a TTY (REPL, full-screen CLI, persistent shell). |
+| [File watching](/examples/file-watching) | You react to creates and writes under a directory. |
+| [List and cleanup](/examples/list-and-cleanup) | You paginate sandboxes and delete stale ones safely. |
+
+## Where to go next
+
+You deepen any pattern with the conceptual pages under the **Docs** tab: especially [Code execution](/core-concepts/code-execution), [File system](/core-concepts/file-system), [Lifecycle](/core-concepts/lifecycle), and the [TypeScript](/sdks/typescript) / [Python](/sdks/python) SDK pages. You find every HTTP path in the **API Reference** tab.

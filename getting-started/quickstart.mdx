@@ -11,7 +11,7 @@ Get your first VoidRun sandbox up and running in minutes. This guide walks you t
 
 Before you begin, make sure you have:
 
-- A VoidRun API key (get one from your [VoidRun Dashboard](https://dashboard.voidrun.com))
+- A VoidRun API key (get one from the [VoidRun Dashboard](https://dash.void-run.com))
 - Node.js 18+ or Python 3.9+ installed (for SDK usage)
 - `curl` installed (for REST API usage)
 
@@ -49,7 +49,7 @@ Set your API key as an environment variable:
 
 <CodeGroup>
 ```bash TypeScript
-export VOIDRUN_API_KEY="your-api-key-here"
+export VR_API_KEY="your-api-key-here"
 ```
 
 ```bash Python
@@ -58,11 +58,11 @@ export VR_API_KEY="your-api-key-here"
 ```
 
 ```bash CLI
-export VOIDRUN_API_KEY="your-api-key-here"
+export VR_API_KEY="your-api-key-here"
 ```
 
 ```bash cURL
-export VOIDRUN_API_KEY="your-api-key-here"
+export VR_API_KEY="your-api-key-here"
 ```
 </CodeGroup>
 
@@ -72,7 +72,7 @@ You can also pass the API key directly when initializing the SDK client. See the
 
 ## Step 3: Create Your First Sandbox
 
-Create an isolated MicroVM environment:
+Create an isolated MicroVM environment. The examples use the **`code`** system image (Alpine-based, with Python and Node: see [System images](/environments/custom-images#system-images)). You can use **`max`** (Debian) or **`docker`** (Docker-in-Docker) instead when your workload requires them.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -89,7 +89,7 @@ const sandbox = await vr.createSandbox({
   name: 'my-first-sandbox',
   cpu: 2,
   mem: 2048,
-  templateId: 'ubuntu:22.04'
+  image: 'code'
 });
 
 console.log(`Sandbox created: ${sandbox.id}`);
@@ -107,14 +107,12 @@ vr = VoidRun()
 # vr = VoidRun(api_key="your-api-key")
 
 # Create a sandbox
-resp = vr.sandboxes.create(
+sandbox = vr.create_sandbox(
     name="my-first-sandbox",
     cpu=2,
     mem=2048,
-    template_id="ubuntu:22.04"
+    image="code"
 )
-sandbox = resp.data
-
 print(f"Sandbox created: {sandbox.id}")
 print(f"Status: {sandbox.status}")
 ```
@@ -128,18 +126,18 @@ voidrun create \
   --name my-first-sandbox \
   --cpu 2 \
   --mem 2048 \
-  --template ubuntu:22.04
+  --template code
 ```
 
 ```bash cURL
-curl -X POST https://api.voidrun.com/v1/sandboxes \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST https://platform.void-run.com/api/sandboxes \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "my-first-sandbox",
     "cpu": 2,
     "mem": 2048,
-    "templateId": "ubuntu:22.04"
+    "image": "code"
   }'
 ```
 </CodeGroup>
@@ -172,8 +170,8 @@ await sandbox.execStream(
 ```python Python
 # Execute a simple command
 result = sandbox.exec('echo "Hello from VoidRun!"')
-print(result.data.data.stdout)  # "Hello from VoidRun!"
-print(result.data.data.exit_code)  # 0
+print(result.data.stdout)  # "Hello from VoidRun!"
+print(result.data.exit_code)  # 0
 
 # Execute with streaming output
 def on_stdout(data):
@@ -199,14 +197,14 @@ voidrun exec <sandbox-id> --command 'npm install && npm run build' --stream
 
 ```bash cURL
 # Execute a command
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "echo \"Hello from VoidRun!\""}'
 
 # Stream command output (SSE endpoint)
-curl -N "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec-stream" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -N "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec-stream" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "npm install && npm run build"}'
 ```
@@ -228,7 +226,7 @@ console.log(content.toString()); // "Hello, VoidRun!"
 
 // List files in a directory
 const files = await sandbox.fs.listFiles('/app');
-console.log(files.data);
+console.log(files.data?.files);
 
 // Copy and move files
 await sandbox.fs.copyFile('/app/hello.txt', '/app/hello-copy.txt');
@@ -248,8 +246,8 @@ content = sandbox.fs.download_file("/app/hello.txt")
 print(content.decode("utf-8"))  # "Hello, VoidRun!"
 
 # List files in a directory
-files = sandbox.fs.list_files("/app")
-print(files.data)
+listing = sandbox.fs.list_files("/app")
+print([f.name for f in (listing.data.files or [])])
 
 # Copy and move files
 sandbox.fs.copy_file("/app/hello.txt", "/app/hello-copy.txt")
@@ -275,19 +273,19 @@ voidrun fs delete <sandbox-id> --path /app/hello.txt
 
 ```bash cURL
 # Upload a file
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/upload" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/upload" \
+  -H "X-API-Key: $VR_API_KEY" \
   -F "file=@./local-file.txt" \
   -F "path=/app/hello.txt"
 
 # Download a file
-curl -X GET "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/download?path=/app/hello.txt" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/download?path=/app/hello.txt" \
+  -H "X-API-Key: $VR_API_KEY" \
   -o downloaded.txt
 
 # List files
-curl -X GET "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/fs/list?path=/app" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/list?path=/app" \
+  -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
 
@@ -327,7 +325,7 @@ result = sandbox.run_code("""
 import math
 print(f"Pi is approximately {math.pi:.4f}")
 """, language="python")
-print(result.data.stdout)
+print(result.stdout)
 
 # Run JavaScript code
 result = sandbox.run_code("""
@@ -335,7 +333,7 @@ const numbers = [1, 2, 3, 4, 5];
 const sum = numbers.reduce((a, b) => a + b, 0);
 console.log(`Sum: ${sum}`);
 """, language="javascript")
-print(result.data.stdout)
+print(result.stdout)
 
 # Run Bash commands
 result = sandbox.run_code("""
@@ -343,7 +341,7 @@ for i in {1..5}; do
   echo "Count: $i"
 done
 """, language="bash")
-print(result.data.stdout)
+print(result.stdout)
 ```
 
 ```bash CLI
@@ -359,8 +357,8 @@ voidrun run-code <sandbox-id> --language python --file ./script.py
 
 ```bash cURL
 # Run code via exec endpoint
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "command": "python3 -c \"print(\\\"Hello from Python!\\\")\""
@@ -399,13 +397,11 @@ await sandbox.remove();
 
 ```python Python
 # List all sandboxes
-resp = vr.sandboxes.list()
-print(f"Total sandboxes: {len(resp.data)}")
+listed = vr.list_sandboxes()
+print(f"Total sandboxes: {len(listed.sandboxes)}")
 
 # Get a specific sandbox
-resp = vr.sandboxes.get("sandbox-id")
-existing = resp.data
-
+sandbox = vr.get_sandbox("sandbox-id")
 # Pause a running sandbox (saves resources)
 sandbox.pause()
 
@@ -419,7 +415,7 @@ sandbox.stop()
 sandbox.start()
 
 # Delete a sandbox when done
-sandbox.delete()
+sandbox.remove()
 ```
 
 ```bash CLI
@@ -447,24 +443,24 @@ voidrun delete <sandbox-id>
 
 ```bash cURL
 # List all sandboxes
-curl -X GET "https://api.voidrun.com/v1/sandboxes" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X GET "https://platform.void-run.com/api/sandboxes" \
+  -H "X-API-Key: $VR_API_KEY"
 
 # Get sandbox details
-curl -X GET "https://api.voidrun.com/v1/sandboxes/<sandbox-id>" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>" \
+  -H "X-API-Key: $VR_API_KEY"
 
 # Pause a sandbox
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/pause" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/pause" \
+  -H "X-API-Key: $VR_API_KEY"
 
 # Resume a sandbox
-curl -X POST "https://api.voidrun.com/v1/sandboxes/<sandbox-id>/resume" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/resume" \
+  -H "X-API-Key: $VR_API_KEY"
 
 # Delete a sandbox
-curl -X DELETE "https://api.voidrun.com/v1/sandboxes/<sandbox-id>" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+curl -X DELETE "https://platform.void-run.com/api/sandboxes/<sandbox-id>" \
+  -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
 
@@ -478,14 +474,14 @@ import { VoidRun } from '@voidrun/sdk';
 
 async function main() {
   // Initialize client
-  const vr = new VoidRun({ apiKey: process.env.VOIDRUN_API_KEY });
+  const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 
   // Create sandbox
   const sandbox = await vr.createSandbox({
     name: 'quickstart-demo',
     cpu: 2,
     mem: 2048,
-    templateId: 'ubuntu:22.04'
+    image: 'code'
   });
 
   console.log(`Created sandbox: ${sandbox.id}`);
@@ -525,14 +521,12 @@ def main():
     vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
 
     # Create sandbox
-    resp = vr.sandboxes.create(
+    sandbox = vr.create_sandbox(
         name="quickstart-demo",
         cpu=2,
         mem=2048,
-        template_id="ubuntu:22.04"
+        image="code"
     )
-    sandbox = resp.data
-
     print(f"Created sandbox: {sandbox.id}")
 
     try:
@@ -541,7 +535,7 @@ def main():
 
         # Execute a command
         result = sandbox.exec("cat /tmp/data.txt")
-        print("File contents:", result.data.data.stdout)
+        print("File contents:", result.data.stdout)
 
         # Run Python code
         code_result = sandbox.run_code("""
@@ -549,11 +543,11 @@ with open('/tmp/data.txt', 'r') as f:
     content = f.read()
     print(f"Read from file: {content}")
 """, language="python")
-        print("Python output:", code_result.data.stdout)
+        print("Python output:", code_result.stdout)
 
     finally:
         # Clean up
-        sandbox.delete()
+        sandbox.remove()
         print("Sandbox deleted")
 
 if __name__ == "__main__":
@@ -564,7 +558,7 @@ if __name__ == "__main__":
 #!/bin/bash
 
 # Create sandbox
-SANDBOX_ID=$(voidrun create --name quickstart-demo --cpu 2 --mem 2048 --template ubuntu:22.04 --json | jq -r '.id')
+SANDBOX_ID=$(voidrun create --name quickstart-demo --cpu 2 --mem 2048 --template code --json | jq -r '.id')
 echo "Created sandbox: $SANDBOX_ID"
 
 # Upload a file
@@ -588,12 +582,12 @@ echo "Sandbox deleted"
 ```bash cURL
 #!/bin/bash
 
-VOIDRUN_API_KEY="your-api-key"
-BASE_URL="https://api.voidrun.com/v1"
+VR_API_KEY="your-api-key"
+BASE_URL="https://platform.void-run.com/api"
 
 # Create sandbox
 SANDBOX_ID=$(curl -s -X POST "$BASE_URL/sandboxes" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name":"quickstart-demo","cpu":2,"mem":2048}' | jq -r '.data.id')
 
@@ -601,19 +595,19 @@ echo "Created sandbox: $SANDBOX_ID"
 
 # Upload a file
 curl -s -X POST "$BASE_URL/sandboxes/$SANDBOX_ID/fs/upload" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "X-API-Key: $VR_API_KEY" \
   -F "file=@-;filename=data.txt" \
   -F "path=/tmp/data.txt" <<< "Hello, VoidRun!"
 
 # Execute a command
 curl -s -X POST "$BASE_URL/sandboxes/$SANDBOX_ID/exec" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY" \
+  -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command":"cat /tmp/data.txt"}' | jq '.data.stdout'
 
 # Clean up
 curl -s -X DELETE "$BASE_URL/sandboxes/$SANDBOX_ID" \
-  -H "Authorization: Bearer $VOIDRUN_API_KEY"
+  -H "X-API-Key: $VR_API_KEY"
 
 echo "Sandbox deleted"
 ```
@@ -628,6 +622,9 @@ Always clean up sandboxes when you're done to avoid unnecessary resource usage. 
 Now that you've completed the quickstart, explore these topics:
 
 <CardGroup cols={2}>
+  <Card title="Examples" icon="book" href="/examples/overview">
+    Full walkthroughs: interpreter, CI, ETL, background jobs, PTY, file watch, cleanup.
+  </Card>
   <Card title="Core Concepts" icon="lightbulb" href="/core-concepts/lifecycle">
     Learn about sandbox lifecycle, auto-sleep, and resume behavior.
   </Card>
