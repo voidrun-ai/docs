@@ -3,6 +3,7 @@
   "theme": "linden",
   "name": "VoidRun",
   "description": "Modern AI Sandbox platform for secure code execution.",
+  "public": true,
   "favicon": "/favicon.png",
   "colors": {
     "primary": "#0F3D3E",
@@ -11,6 +12,9 @@
   },
   "appearance": {
     "default": "light"
+  },
+  "seo": {
+    "indexing": "all"
   },
   "typography": {
     "headings": {
