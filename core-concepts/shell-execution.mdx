@@ -1,0 +1,474 @@
+---
+title: Shell execution
+description: Shell commands and processes in a VoidRun sandbox—sync exec, streaming, Commands API for background work, PTY, and runCode—with TypeScript, Python, REST, and CLI examples.
+---
+
+# Shell execution
+
+This page is the **single map** of how to run work inside a running sandbox: one-shot shell commands, live streams, detached processes, optional PTY session HTTP actions, and the **code interpreter** shortcut. For language-specific runtime details and longer tutorials, still use [Code execution](/core-concepts/code-execution), [Background commands](/core-concepts/background-commands), and [PTY](/core-concepts/pty).
+
+<Note>
+Replace `<sandbox-id>` with your sandbox id. Set **`VR_API_KEY`**. Hosted default API base is the same as OpenAPI **`servers`** (for example `https://platform.void-run.com/api`). Self-hosted: set **`VR_API_URL`** / **`baseUrl`**. See [SDKs & API](/sdks/overview).
+</Note>
+
+## Capabilities at a glance
+
+| Capability | Use when | HTTP (conceptual) | SDK entry points |
+|------------|----------|-------------------|------------------|
+| **Sync shell** | Command finishes within timeout; you want full stdout/stderr in one response | `POST /sandboxes/{id}/exec` | `sandbox.exec({ command, cwd?, env?, timeout? })` |
+| **Streaming shell** | Long output or progress; handle chunks as they arrive | `POST /sandboxes/{id}/exec-stream` (SSE) | `sandbox.execStream(...)` or `sandbox.exec(..., { onStdout, onStderr, onExit })` |
+| **Background commands** | Servers, workers, attach/wait/kill by PID | `/sandboxes/{id}/commands/*` | `sandbox.commands.run` / `list` / `wait` / `kill` / `connect` |
+| **Code interpreter** | Snippets in Python, JS, bash, etc. without hand-wrapping | Uses exec internally | `sandbox.runCode` / `run_code` |
+| **PTY (interactive)** | Real TTY, TUIs, persistent shell | WebSocket + REST session lifecycle | `sandbox.pty.*` |
+| **Session-exec (HTTP)** | Agent PTY actions without using the WebSocket client yourself | `POST /sandboxes/{id}/session-exec` | `ExecutionApi.sessionExec` (generated client) |
+
+---
+
+## 1. Synchronous shell execution
+
+Runs the command to completion (subject to **timeout**, default **30s**, max **300s** on sync exec). Response **`data`** contains **`stdout`**, **`stderr`**, **`exitCode`**.
+
+Optional JSON fields on the request: **`cwd`**, **`env`**, **`timeout`**, **`args`** (array of extra argv pieces; most callers use a single **`command`** string—confirm shape in OpenAPI if you use **`args`**).
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+const sandbox = await vr.createSandbox({ name: 'exec-demo', mem: 1024 });
+
+const result = await sandbox.exec({
+  command: 'echo "hello" && pwd',
+  cwd: '/tmp',
+  env: { MY_VAR: '1' },
+  timeout: 60,
+});
+
+console.log(result.data?.stdout, result.data?.exitCode);
+await sandbox.remove();
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ["VR_API_KEY"])
+sandbox = vr.create_sandbox(name="exec-demo", mem=1024)
+
+result = sandbox.exec(
+    'echo "hello" && pwd',
+    cwd="/tmp",
+    env={"MY_VAR": "1"},
+    timeout=60,
+)
+
+print(result.data.stdout, result.data.exit_code)
+sandbox.remove()
+```
+
+```bash CLI
+voidrun create --mem 1024 --name exec-demo
+voidrun exec <sandbox-id> --command 'echo "hello" && pwd' --cwd /tmp --timeout 60
+voidrun delete <sandbox-id>
+```
+
+```bash cURL
+curl -s -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "echo \"hello\" && pwd", "cwd": "/tmp", "env": {"MY_VAR": "1"}, "timeout": 60}'
+```
+</CodeGroup>
+
+---
+
+## 2. Streaming shell execution (SSE)
+
+Server-Sent Events: **`event: stdout`**, **`stderr`**, **`exit`** (JSON with **`exitCode`**). Use for logs and long-running commands instead of polling sync exec.
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+const sandbox = await vr.getSandbox('<sandbox-id>');
+
+await sandbox.execStream(
+  { command: 'for i in 1 2 3; do echo "tick $i"; sleep 1; done', timeout: 120 },
+  {
+    onStdout: (chunk) => process.stdout.write(chunk),
+    onStderr: (chunk) => process.stderr.write(chunk),
+    onExit: ({ exitCode }) => console.error('exit', exitCode),
+  },
+);
+
+// Equivalent: await sandbox.exec({ command: '...' }, { onStdout, onStderr, onExit });
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ["VR_API_KEY"])
+sandbox = vr.get_sandbox("<sandbox-id>")
+
+
+def on_stdout(data):
+    print(data, end="")
+
+
+def on_stderr(data):
+    print(data, end="", file=__import__("sys").stderr)
+
+
+def on_exit(payload):
+    print("exit", payload)
+
+
+sandbox.exec_stream(
+    'for i in 1 2 3; do echo "tick $i"; sleep 1; done',
+    timeout=120,
+    on_stdout=on_stdout,
+    on_stderr=on_stderr,
+    on_exit=on_exit,
+)
+```
+
+```bash CLI
+voidrun exec <sandbox-id> \
+  --command 'for i in 1 2 3; do echo "tick $i"; sleep 1; done' \
+  --stream \
+  --timeout 120
+```
+
+```bash cURL
+curl -N -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec-stream" \
+  -H "X-API-Key: $VR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{"command": "for i in 1 2 3; do echo \"tick $i\"; sleep 1; done", "timeout": 120}'
+```
+</CodeGroup>
+
+---
+
+## 3. Background commands API
+
+Start a process, then **list**, **wait**, **kill**, or **attach** (SSE) by **PID**. REST base path: **`/sandboxes/{id}/commands/`**.
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+const sandbox = await vr.getSandbox('<sandbox-id>');
+
+// run(command, env?, cwd?, timeout?) — timeout 0 often means no limit; confirm in OpenAPI
+const run = await sandbox.commands.run('sleep 2 && echo done', undefined, '/tmp', 0);
+console.log('pid', run.pid);
+
+const { processes } = await sandbox.commands.list();
+console.log(processes);
+
+const done = await sandbox.commands.wait(run.pid);
+console.log('exit', done.exitCode);
+
+const run2 = await sandbox.commands.run('for i in 1 2 3; do echo x$i; sleep 1; done', undefined, '/tmp', 0);
+await sandbox.commands.connect(run2.pid, {
+  onStdout: (d) => console.log('[out]', d),
+  onStderr: (d) => console.error('[err]', d),
+  onExit: (p) => console.log('exited', p),
+});
+
+const run3 = await sandbox.commands.run('sleep 9999', undefined, '/tmp', 0);
+await sandbox.commands.kill(run3.pid);
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ["VR_API_KEY"])
+sandbox = vr.get_sandbox("<sandbox-id>")
+
+run = sandbox.commands.run("sleep 2 && echo done", None, "/tmp", 0)
+pid = run.data.pid
+print("pid", pid)
+
+lst = sandbox.commands.list()
+print(lst.data)
+
+done = sandbox.commands.wait(pid)
+print("exit", done.data.exit_code)
+
+run2 = sandbox.commands.run(
+    "for i in 1 2 3; do echo x$i; sleep 1; done", None, "/tmp", 0
+)
+sandbox.commands.connect(
+    run2.data.pid,
+    on_stdout=lambda d: print("[out]", d),
+    on_stderr=lambda d: print("[err]", d),
+    on_exit=lambda p: print("exited", p),
+)
+
+run3 = sandbox.commands.run("sleep 9999", None, "/tmp", 0)
+sandbox.commands.kill(run3.data.pid)
+```
+
+```bash CLI
+voidrun bg run <sandbox-id> --command 'sleep 2 && echo done' --cwd /tmp
+voidrun bg list <sandbox-id>
+voidrun bg wait <sandbox-id> --pid <pid>
+voidrun bg kill <sandbox-id> --pid <pid>
+# Stream attach: use SDK or cURL (SSE) if your CLI build has no attach subcommand
+```
+
+```bash cURL
+# Start
+curl -s -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/run" \
+  -H "X-API-Key: $VR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "sleep 2 && echo done", "cwd": "/tmp", "timeout": 0}'
+
+# List
+curl -s "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/list" \
+  -H "X-API-Key: $VR_API_KEY"
+
+# Wait
+curl -s -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/wait" \
+  -H "X-API-Key: $VR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"pid": 12345}'
+
+# Attach (SSE)
+curl -N -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/attach" \
+  -H "X-API-Key: $VR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{"pid": 12345}'
+
+# Kill
+curl -s -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/kill" \
+  -H "X-API-Key: $VR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"pid": 12345}'
+```
+</CodeGroup>
+
+---
+
+## 4. Code interpreter (`runCode` / `run_code`)
+
+Runs a snippet in a supported language; returns **`CodeExecutionResult`** at the **top level** (not the same shape as **`exec`**). Streaming callbacks are optional on some SDK versions.
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+const sandbox = await vr.getSandbox('<sandbox-id>');
+
+const r = await sandbox.runCode('print(2 + 2)', { language: 'python', timeout: 60 });
+console.log(r.stdout, r.success, r.exitCode);
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ["VR_API_KEY"])
+sandbox = vr.get_sandbox("<sandbox-id>")
+
+r = sandbox.run_code("print(2 + 2)", language="python", timeout=60)
+print(r.stdout, r.success, r.exit_code)
+```
+
+```bash CLI
+voidrun exec <sandbox-id> --command 'python3 -c "print(2 + 2)"'
+```
+
+```bash cURL
+curl -s -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+  -H "X-API-Key: $VR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "python3 -c \"print(2 + 2)\""}'
+```
+</CodeGroup>
+
+More patterns: [Code execution](/core-concepts/code-execution), [AI code interpreter example](/examples/ai-code-interpreter).
+
+---
+
+## 5. PTY (interactive terminal)
+
+High-level flow: **WebSocket** to the ephemeral or session URL, plus REST to create/list/delete sessions. The **`voidrun` CLI** does not mirror every PTY WebSocket option; use the **SDK** or implement the WebSocket from **OpenAPI**.
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+const sandbox = await vr.getSandbox('<sandbox-id>');
+
+const pty = await sandbox.pty.connect({
+  onData: (data) => process.stdout.write(data),
+});
+pty.sendInput('echo "hello"\n');
+await new Promise((r) => setTimeout(r, 400));
+pty.close();
+```
+
+```python Python
+import asyncio
+from voidrun import AsyncVoidRun
+
+
+async def main():
+    async with AsyncVoidRun() as vr:
+        sandbox = await vr.get_sandbox("<sandbox-id>")
+        pty = await sandbox.pty.connect(on_data=lambda d: print(d, end=""))
+        pty.send_input('echo "hello"\n')
+        await asyncio.sleep(0.4)
+        await pty.close()
+
+
+asyncio.run(main())
+```
+
+```bash CLI
+# Use the dashboard, SDK, or a WebSocket client per OpenAPI PTY paths.
+# See: https://www.npmjs.com/package/@voidrun/sdk and the API Reference → PTY.
+```
+
+```bash cURL
+# PTY is WebSocket-first. HTTP helpers: POST /sandboxes/{id}/pty/sessions to create a session (see API Reference).
+```
+</CodeGroup>
+
+Concepts and persistent sessions: [PTY](/core-concepts/pty), [Interactive PTY example](/examples/interactive-pty).
+
+---
+
+## 6. Session-exec (HTTP PTY actions)
+
+**`POST /sandboxes/{id}/session-exec`** sends structured actions (**`create`**, **`exec`**, **`input`**, **`resize`**, **`close`**) to the agent. This complements the WebSocket PTY: useful for thin clients or debugging. There is also **`POST .../session-exec-stream`** for streaming variants—see **API Reference**.
+
+<Note>
+Most applications should use **`sandbox.pty`** (WebSocket). Use **`session-exec`** when you need request/response HTTP actions against an existing PTY session model.
+</Note>
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const apiKey = process.env.VR_API_KEY!;
+const base =
+  process.env.VR_API_URL?.replace(/\/$/, '') ??
+  'https://platform.void-run.com/api';
+
+const vr = new VoidRun({ apiKey });
+const sandbox = await vr.getSandbox('<sandbox-id>');
+
+async function sessionExec(body: object) {
+  const r = await fetch(`${base}/sandboxes/${sandbox.id}/session-exec`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': apiKey,
+    },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json() as Promise<{
+    sessionId?: string;
+    output?: string;
+    exitCode?: number;
+  }>;
+}
+
+const created = await sessionExec({ action: 'create', shell: '/bin/bash' });
+const sessionId = created.sessionId;
+if (!sessionId) throw new Error('no session');
+
+const out = await sessionExec({
+  action: 'exec',
+  sessionId,
+  command: 'pwd',
+});
+console.log(out.output, out.exitCode);
+```
+
+```python Python
+from voidrun import VoidRun
+from voidrun.api_client.api.execution_api import ExecutionApi
+from voidrun.api_client.models.session_exec_request import SessionExecRequest
+import os
+
+vr = VoidRun(api_key=os.environ["VR_API_KEY"])
+sandbox = vr.get_sandbox("<sandbox-id>")
+exec_api = ExecutionApi(vr._api_client)
+
+created = exec_api.session_exec(
+    id=sandbox.id,
+    session_exec_request=SessionExecRequest(action="create", shell="/bin/bash"),
+)
+session_id = created.session_id
+if not session_id:
+    raise RuntimeError("no session")
+
+out = exec_api.session_exec(
+    id=sandbox.id,
+    session_exec_request=SessionExecRequest(
+        action="exec",
+        session_id=session_id,
+        command="pwd",
+    ),
+)
+print(out.output, out.exit_code)
+```
+
+```bash CLI
+# No standard one-liner; use cURL or the generated OpenAPI examples.
+```
+
+```bash cURL
+# Create session
+curl -s -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/session-exec" \
+  -H "X-API-Key: $VR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"action": "create", "shell": "/bin/bash"}'
+
+# Run command in session (replace SESSION_ID)
+curl -s -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/session-exec" \
+  -H "X-API-Key: $VR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"action": "exec", "sessionId": "SESSION_ID", "command": "pwd"}'
+```
+</CodeGroup>
+
+---
+
+## Choosing a path
+
+- **One-shot automation / CI** → sync **`exec`** (or **`runCode`** for snippets).  
+- **Live logs** → **`exec-stream`** or **`commands.connect`**.  
+- **Daemons and workers** → **`commands.run`** (+ wait/kill).  
+- **Full-screen CLI / REPL** → **PTY WebSocket** via **`sandbox.pty`**.  
+- **Low-level PTY over HTTP** → **`session-exec`** / OpenAPI.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Code execution" icon="terminal" href="/core-concepts/code-execution">
+    Interpreter depth, timeouts, and best practices
+  </Card>
+  <Card title="Background commands" icon="server" href="/core-concepts/background-commands">
+    REST summary and links
+  </Card>
+  <Card title="PTY" icon="window" href="/core-concepts/pty">
+    When to use PTY vs exec
+  </Card>
+  <Card title="TypeScript SDK" icon="node-js" href="/sdks/typescript">
+    All sandbox methods in one place
+  </Card>
+</CardGroup>

@@ -49,6 +49,7 @@
             "pages": [
               "core-concepts/lifecycle",
               "core-concepts/code-execution",
+              "core-concepts/shell-execution",
               "core-concepts/file-system",
               "core-concepts/file-watching",
               "core-concepts/pty",

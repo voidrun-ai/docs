@@ -619,11 +619,8 @@ setInterval(async () => {
   await sandbox.exec({ command: 'echo "keepalive" > /dev/null' });
 }, 4 * 60 * 1000); // Every 4 minutes (before 5-min timeout)
 
-// Option 3: Run a long-running process
-await sandbox.exec({ 
-  command: 'while true; do sleep 60; done &',
-  background: true
-});
+// Option 3: Run a long-running process (Commands API returns a PID)
+await sandbox.commands.run('while true; do sleep 60; done', undefined, undefined, 0);
 ```
 
 ```python Python

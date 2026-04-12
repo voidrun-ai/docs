@@ -1,37 +1,408 @@
 ---
 title: Background commands
-description: Run, list, wait for, and kill long-lived processes inside a sandbox via the Commands API.
+description: Start long-lived processes in a sandbox by PID—run, list, stream output, wait, and kill—via the Commands API, with REST, SDK, and CLI patterns.
 ---
 
 # Background commands
 
-Long-running workloads (dev servers, workers, watchers) should use the **background commands** API instead of blocking **`exec`**. REST paths live under **`/sandboxes/{id}/commands/`** (`run`, `list`, `wait`, `kill`, attach/stream as documented in OpenAPI).
+Use the **Commands API** when a workload should **outlive a single HTTP request**: dev servers, queue workers, install scripts that print for minutes, or anything you need to **observe** or **stop** later by **process id (PID)**.
 
-## Typical flow
+Blocking **`POST .../exec`** waits until the command finishes (or hits a timeout). **`exec-stream`** streams output but still ties the client to that request. Background commands **return immediately** with a **PID** so you can **list**, **attach** (SSE), **wait**, or **kill** from separate calls.
 
-1. **`POST .../commands/run`**: start a process; response includes a **PID**.
-2. **`GET .../commands/list`**: inspect running processes.
-3. **`POST .../commands/wait`**: block until a PID exits (or use attach/stream for logs).
-4. **`POST .../commands/kill`**: terminate a PID.
+<Note>
+For a full comparison with sync **`exec`**, streaming, PTY, and **`runCode`**, see [Shell execution](/core-concepts/shell-execution). Detached processes with a **PID** are started only via **`POST .../commands/run`** (and **`sandbox.commands.run`** in SDKs); use **list / wait / kill / attach** from the Commands API.
+</Note>
 
-See the **API Reference** tab for request bodies (command, optional `cwd`, `env`, `timeout`).
+## When to use what
 
-## SDK usage (summary)
+| Approach | Best for |
+|----------|----------|
+| **Sync `exec`** | Short commands; you want **stdout/stderr/exitCode** in one response. |
+| **`exec-stream`** | Long output, but you are fine **holding one streaming request** until exit. |
+| **Commands API (`/commands/run`, …)** | **Canonical** model for **PID lifecycle**: run, list, attach logs, wait for exit, kill. |
 
-- **TypeScript:** `sandbox.commands.run(command, env?, cwd?, timeout?)` returns **`CommandRunResponse`** with **`pid`** at the top level; **`list()`** returns **`processes`**; **`wait` / `kill`** take the PID. (Not an options object for `run`: positional arguments.)
-- **Python:** `sandbox.commands.run("cmd", None, "/app")` returns **`VoidRunResponse`**; use **`run_result.data.pid`** and the same list/wait/kill pattern as in [Code execution: Background Processes](/core-concepts/code-execution#background-processes).
+## REST endpoints
 
-## Examples in the docs
+All routes are under **`/sandboxes/{id}/commands/`** (prefix with your API base, e.g. **`https://platform.void-run.com/api`**). Authenticate with **`X-API-Key`**.
 
-The [Code execution](/core-concepts/code-execution#background-processes) guide contains **TypeScript**, **Python**, **CLI**, and **cURL** snippets aligned with **`/commands/run`** and **`/commands/list`**.
+| Method | Path | Role |
+|--------|------|------|
+| **POST** | `.../commands/run` | Start a background process; body **`command`** (required), optional **`env`**, **`cwd`**, **`timeout`**. |
+| **GET** | `.../commands/list` | List tracked processes and metadata. |
+| **POST** | `.../commands/attach` | **SSE** stream of **`stdout`**, **`stderr`**, **`exit`** for a **PID** (JSON body **`{ "pid": number }`**). |
+| **POST** | `.../commands/wait` | Block until the **PID** exits; returns **exitCode**. |
+| **POST** | `.../commands/kill` | Terminate a **PID**. |
+
+Request/response schemas are in the **API Reference** tab (e.g. **`runBackgroundCommand`**, **`attachToBackgroundProcess`**, **`waitForBackgroundProcess`**).
+
+### Run request (`/commands/run`)
+
+- **`command`** (string, required): shell command line as executed in the sandbox.
+- **`env`** (object, optional): extra environment variables.
+- **`cwd`** (string, optional): working directory.
+- **`timeout`** (integer, optional): seconds. Per OpenAPI, **`0`** means **no timeout**; maximum **900** when a limit applies.
+
+### Responses you will see
+
+- **Run:** **`success`**, **`pid`**, **`command`** (`CommandRunResponse`).
+- **List:** **`success`**, **`processes`** — each item can include **`pid`**, **`command`**, **`startTime`**, **`running`**, **`exitCode`** (`ProcessInfo`).
+- **Wait:** **`success`**, **`exitCode`**, optional **`error`** (`CommandWaitResponse`).
+- **Kill:** **`success`**, **`message`** (`CommandKillResponse`).
+- **Attach:** **`text/event-stream`** with events **`stdout`**, **`stderr`**, **`exit`** (and **`error`** when applicable).
+
+## Typical flows
+
+1. **Fire and reap:** **`run`** → **`wait`** → read **`exitCode`** (batch workers).
+2. **Fire and stream:** **`run`** → **`connect`** / attach (SSE) until **`exit`** (logs).
+3. **Inspect:** **`list`** to debug PIDs and commands.
+4. **Stop:** **`kill`** for stuck jobs or cancellation.
+
+<Warning>
+**`wait`** and **`attach`** both relate to the same PID: **`wait`** returns JSON when the process exits; **`attach`** consumes an **SSE** stream. For one PID, use **either** streaming **or** **`wait`** in the same way your SDK expects—avoid overlapping both unless you know your stack allows it.
+</Warning>
+
+## SDK notes
+
+- **TypeScript:** **`sandbox.commands.run(command, env?, cwd?, timeout?)`** — **positional** arguments, not an options object. **`run`** returns **`pid`** on the **response object** (top level). **`list()`** returns **`{ processes }`**. **`wait`**, **`kill`**, **`connect`** take the numeric **PID**.
+- **Python:** Same **positional** order **`(command, env, cwd, timeout)`**; use **`None`** for unused slots. Responses are often **`VoidRunResponse`**: use **`result.data.pid`**, **`result.data.exit_code`**, etc.
+
+---
+
+## Examples
+
+Replace **`sandbox-id`** in SDK strings and **`<sandbox-id>`** in CLI/cURL with your sandbox id. Set **`VR_API_KEY`**. cURL uses the hosted API host; on self-hosted, swap the URL for your **`VR_API_URL`**.
+
+### Start a background process (`commands/run`)
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+const sandbox = await vr.getSandbox('sandbox-id');
+
+const run = await sandbox.commands.run(
+  'npm run dev',
+  { NODE_ENV: 'development' },
+  '/app',
+  0,
+);
+
+console.log('PID:', run.pid, 'command:', run.command);
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+sandbox = vr.get_sandbox("sandbox-id")
+
+run = sandbox.commands.run(
+    "npm run dev",
+    {"NODE_ENV": "development"},
+    "/app",
+    0,
+)
+
+print("PID:", run.data.pid, "command:", run.command)
+```
+
+```bash CLI
+voidrun bg run <sandbox-id> --command 'npm run dev' --cwd /app
+```
+
+```bash cURL
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/run" \
+  -H "X-API-Key: $VR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "command": "npm run dev",
+    "cwd": "/app",
+    "env": {"NODE_ENV": "development"},
+    "timeout": 0
+  }'
+```
+</CodeGroup>
+
+### List running processes
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+const sandbox = await vr.getSandbox('sandbox-id');
+
+const { processes } = await sandbox.commands.list();
+console.log(processes.map((p) => ({ pid: p.pid, cmd: p.command })));
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+sandbox = vr.get_sandbox("sandbox-id")
+
+lst = sandbox.commands.list()
+print(lst.data)
+```
+
+```bash CLI
+voidrun bg list <sandbox-id>
+```
+
+```bash cURL
+curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/list" \
+  -H "X-API-Key: $VR_API_KEY"
+```
+</CodeGroup>
+
+### Wait until a process exits
+
+Use the **PID** returned from **`run`**. Replace **`<pid>`** with that number in CLI and cURL.
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+const sandbox = await vr.getSandbox('sandbox-id');
+
+const run = await sandbox.commands.run(
+  'sleep 2 && echo done',
+  undefined,
+  '/tmp',
+  0,
+);
+
+const done = await sandbox.commands.wait(run.pid);
+console.log('Exit code:', done.exitCode);
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+sandbox = vr.get_sandbox("sandbox-id")
+
+run = sandbox.commands.run("sleep 2 && echo done", None, "/tmp", 0)
+done = sandbox.commands.wait(run.data.pid)
+print("Exit code:", done.data.exit_code)
+```
+
+```bash CLI
+voidrun bg wait <sandbox-id> --pid <pid>
+```
+
+```bash cURL
+# Replace 12345 with the PID from commands/run
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/wait" \
+  -H "X-API-Key: $VR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"pid": 12345}'
+```
+</CodeGroup>
+
+### Attach and stream output (SSE)
+
+Stream **`stdout`** / **`stderr`** until an **`exit`** event. If the process exits very quickly, attach may see little output—**`wait`** is safer for short jobs.
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+const sandbox = await vr.getSandbox('sandbox-id');
+
+const run = await sandbox.commands.run(
+  'for i in 1 2 3; do echo "line $i"; sleep 1; done',
+  undefined,
+  '/tmp',
+  0,
+);
+
+await sandbox.commands.connect(run.pid, {
+  onStdout: (data) => process.stdout.write(data),
+  onStderr: (data) => process.stderr.write(data),
+  onExit: (payload) => console.log('exited', payload),
+});
+```
+
+```python Python
+import sys
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+sandbox = vr.get_sandbox("sandbox-id")
+
+run = sandbox.commands.run(
+    'for i in 1 2 3; do echo "line $i"; sleep 1; done',
+    None,
+    "/tmp",
+    0,
+)
+
+sandbox.commands.connect(
+    run.data.pid,
+    on_stdout=lambda d: print(d, end=""),
+    on_stderr=lambda d: print(d, end="", file=sys.stderr),
+    on_exit=lambda p: print("exited", p),
+)
+```
+
+```bash CLI
+# Many CLI builds do not expose attach; use cURL (-N) or the SDK.
+voidrun bg run <sandbox-id> --command 'echo use SDK or cURL for attach'
+```
+
+```bash cURL
+# Replace 12345 with the PID from commands/run
+curl -N -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/attach" \
+  -H "X-API-Key: $VR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{"pid": 12345}'
+```
+</CodeGroup>
+
+### Kill a process
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+const sandbox = await vr.getSandbox('sandbox-id');
+
+const run = await sandbox.commands.run('sleep 9999', undefined, '/tmp', 0);
+await sandbox.commands.kill(run.pid);
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+sandbox = vr.get_sandbox("sandbox-id")
+
+run = sandbox.commands.run("sleep 9999", None, "/tmp", 0)
+sandbox.commands.kill(run.data.pid)
+```
+
+```bash CLI
+voidrun bg kill <sandbox-id> --pid <pid>
+```
+
+```bash cURL
+# Replace 12345 with the PID from commands/run
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/kill" \
+  -H "X-API-Key: $VR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"pid": 12345}'
+```
+</CodeGroup>
+
+### Full lifecycle (run → list → wait → kill)
+
+Same pattern as [Code execution § Background processes](/core-concepts/code-execution#background-processes): start a process, inspect the list, **either** wait for exit **or** kill (not both required).
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY! });
+const sandbox = await vr.getSandbox('sandbox-id');
+
+const runResult = await sandbox.commands.run('npm run dev', undefined, '/app', 0);
+console.log('Process PID:', runResult.pid);
+
+const listResult = await sandbox.commands.list();
+console.log('Running processes:', listResult.processes);
+
+const waitResult = await sandbox.commands.wait(runResult.pid);
+console.log('Exit code:', waitResult.exitCode);
+
+// Or stop early:
+// await sandbox.commands.kill(runResult.pid);
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+sandbox = vr.get_sandbox("sandbox-id")
+
+run_result = sandbox.commands.run("npm run dev", None, "/app", 0)
+print("Process PID:", run_result.data.pid)
+
+list_result = sandbox.commands.list()
+print("Running processes:", list_result.data)
+
+wait_result = sandbox.commands.wait(run_result.data.pid)
+print("Exit code:", wait_result.data.exit_code)
+
+# Or stop early:
+# sandbox.commands.kill(run_result.data.pid)
+```
+
+```bash CLI
+voidrun bg run <sandbox-id> --command 'npm run dev' --cwd /app
+voidrun bg list <sandbox-id>
+voidrun bg wait <sandbox-id> --pid <pid>
+# voidrun bg kill <sandbox-id> --pid <pid>
+```
+
+```bash cURL
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/run" \
+  -H "X-API-Key: $VR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"command": "npm run dev", "cwd": "/app", "timeout": 0}'
+
+curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/list" \
+  -H "X-API-Key: $VR_API_KEY"
+
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/wait" \
+  -H "X-API-Key: $VR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"pid": 12345}'
+
+# curl -X POST ".../commands/kill" ... -d '{"pid": 12345}'
+```
+</CodeGroup>
+
+---
+
+## Practices
+
+- **Sandbox must be running** — start or resume the VM before **`commands/run`**.
+- **PID is scoped to the sandbox** — do not reuse PIDs across sandboxes.
+- **Fast commands** — prefer **`wait`** for very short jobs; **`attach`** needs the process to still be producing output when you connect.
+- **Teardown** — **`remove()`** the sandbox when finished; **`kill`** is for in-session control.
+
+## Where to read more
+
+- **[Shell execution](/core-concepts/shell-execution)** — Commands API beside **`exec`**, streaming, and PTY.
+- **[Example: Background process](/examples/background-process)** — step-by-step **run → wait → connect → kill → list → cleanup**.
+- **[Code execution](/core-concepts/code-execution)** — **`exec`**, interpreter, and streaming.
 
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Code execution" icon="terminal" href="/core-concepts/code-execution">
-    Background process examples and exec/streaming context.
+  <Card title="Shell execution" icon="terminal" href="/core-concepts/shell-execution">
+    All execution modes and REST paths in one place
   </Card>
-  <Card title="SDKs & API" icon="code" href="/sdks/overview">
-    Auth, base URL, and OpenAPI pointers.
+  <Card title="Background process example" icon="lightbulb" href="/examples/background-process">
+    Hands-on walkthrough
+  </Card>
+  <Card title="TypeScript SDK" icon="node-js" href="/sdks/typescript">
+    `sandbox.commands` reference
+  </Card>
+  <Card title="API Reference" icon="api" href="/sdks/overview#interactive-api-reference">
+    OpenAPI: Execution tag
   </Card>
 </CardGroup>
