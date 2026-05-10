@@ -45,6 +45,10 @@
             ]
           },
           {
+            "group": "IDE & MCP",
+            "pages": ["integrations/mcp"]
+          },
+          {
             "group": "Core Concepts",
             "pages": [
               "core-concepts/lifecycle",

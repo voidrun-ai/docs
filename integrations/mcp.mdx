@@ -1,0 +1,333 @@
+---
+title: VoidRun MCP
+description: Install and configure the VoidRun MCP server in Cursor, VS Code with GitHub Copilot, Claude Code, Claude connectors, JetBrains, and other Streamable HTTP clients.
+---
+
+# VoidRun MCP
+
+The **Model Context Protocol (MCP)** lets coding agents and IDEs call VoidRun over **Streamable HTTP** (not stdio): one URL, JSON-RPC, same tenancy and auth as the REST API. This page covers **where to paste config for each major tool**, **hosted VoidRun**, **local `voidrun`**, and how **agents** should read tool results.
+
+## Client compatibility (read this first)
+
+VoidRun is a **remote** MCP server: your client opens **HTTPS** (or local **HTTP**) to **`{apiBase}/mcp`**. Clients that only support **stdio** (spawn a local command) cannot use VoidRun **directly** unless you run a separate local bridge (not provided here).
+
+| Product | Typical config | Transport |
+|---------|----------------|------------|
+| [Cursor](#cursor) | `.cursor/mcp.json` | Streamable HTTP (`url` + `headers`) |
+| [VS Code + Copilot](#vscode-copilot) | `.vscode/mcp.json` or user MCP profile | HTTP (`type: "http"`); VS Code tries Streamable HTTP first ([reference](https://code.visualstudio.com/docs/copilot/reference/mcp-configuration)) |
+| [Claude Code](#claude-code) | `claude mcp add …` or project **`.mcp.json`** | `--transport http` ([docs](https://docs.claude.com/en/docs/claude-code/mcp.md)) |
+| [Claude remote connectors](#claude-remote-connectors) | **Customize → Connectors** | Remote MCP from Anthropic’s cloud ([guide](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)) |
+| [JetBrains + Copilot](#jetbrains-copilot) | Copilot Chat MCP **`mcp.json`** | Remote HTTP per GitHub Copilot docs |
+| [MCP Inspector](#mcp-inspector-debugging) | CLI or UI | Debugging |
+
+## What you get
+
+| Item | Detail |
+|------|--------|
+| **Transport** | [Streamable HTTP](https://modelcontextprotocol.io/) MCP |
+| **Endpoint** | `POST {baseUrl}/mcp` where `{baseUrl}` is your API root including **`/api`** (example: `https://platform.void-run.com/api/mcp`) |
+| **Auth** | **`X-API-Key`** on every authenticated MCP request (same as REST) |
+| **Capabilities** | Create/list/get/delete sandboxes, **`execute_command`**, **`run_code`**, filesystem tools, background commands, read-only **resources** for discovery |
+
+## Architecture
+
+```text
+Client (Cursor, Inspector, custom)
+  → HTTPS POST /api/mcp   (JSON-RPC: initialize, tools/list, tools/call, resources/read, …)
+  → API auth middleware   →   MCP Streamable HTTP server   →   voidrun/mcp handlers
+  → Sandbox / exec / FS / commands   →   guest agent in the MicroVM
+```
+
+After **`initialize`**, clients must send the **`Mcp-Session-Id`** header on later requests. Cursor and the Inspector client set this automatically once the session is established.
+
+## Prerequisites
+
+1. A **VoidRun API** reachable over HTTPS (hosted) or HTTP (local dev).
+2. A valid **API key** for your organization (from the [dashboard](https://dash.void-run.com) or your operator).
+3. For **self-hosted** deployments: a correctly provisioned host (base images, MongoDB, networking). MCP adds **no extra port**; it shares the API server.
+
+## MCP URL quick reference
+
+| Environment | Base URL | MCP URL |
+|-------------|----------|---------|
+| Hosted (VoidRun Cloud) | `https://platform.void-run.com/api` | `https://platform.void-run.com/api/mcp` |
+| Local `go run` default | `http://127.0.0.1:33944/api` (or your `SERVER_PORT`) | `http://127.0.0.1:33944/api/mcp` |
+
+Self-hosted: replace the host and path prefix with whatever **`VR_API_URL`** points at (see [Self-hosted deployments](/advanced/self-hosted)), then append **`/mcp`**.
+
+## Authentication
+
+| Method | Headers | Notes |
+|--------|---------|--------|
+| **API key** | `X-API-Key: <key>` | Org is derived from the key. Use this header in MCP client config (for example Cursor, VS Code, or Claude Code **`headers`**). |
+
+<Warning>
+Do not commit real API keys. Prefer **environment substitution** (Cursor **`${env:VR_API_KEY}`**), **VS Code `inputs`** and **`${input:…}`**, or **Claude Code** **`${VR_API_KEY}`** inside **`headers`** in **`.mcp.json`** (see [Claude env expansion](https://docs.claude.com/en/docs/claude-code/mcp.md#environment-variable-expansion-in-mcpjson)).
+</Warning>
+
+## Cursor {#cursor}
+
+1. Create an API key in the [VoidRun dashboard](https://dash.void-run.com).
+2. Expose it to the IDE as **`VR_API_KEY`** (or another name you reference in config).
+3. **Project config (recommended for teams):** add **`.cursor/mcp.json`** at the repo root:
+
+```json
+{
+  "mcpServers": {
+    "voidrun": {
+      "url": "https://platform.void-run.com/api/mcp",
+      "headers": {
+        "X-API-Key": "${env:VR_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+4. **User-wide config:** Cursor can also load MCP from your user settings path (see **Cursor → Settings → MCP** for “Open MCP config”); same JSON shape under **`mcpServers`**.
+5. **Cursor → Settings → MCP**: enable **voidrun**, then **Reload Window** after URL or header changes.
+6. Confirm tools (**`create_sandbox`**, **`execute_command`**, etc.) appear in the MCP tool list.
+
+Official Cursor MCP shape is documented in Cursor’s own MCP / **`mcp.json`** help; VoidRun needs **`url`** plus static **`headers`** including **`X-API-Key`**.
+
+## VS Code and GitHub Copilot Chat {#vscode-copilot}
+
+VS Code stores MCP in **`mcp.json`**: either **`.vscode/mcp.json`** in the workspace (shareable with the repo) or the **user** MCP file opened via **MCP: Open User Configuration** ([add and manage MCP servers](https://code.visualstudio.com/docs/copilot/customization/mcp-servers)).
+
+1. **Copilot access:** VS Code **1.99+** and a Copilot plan that allows MCP. **Organizations:** an admin may need to enable the **MCP servers in Copilot** policy ([GitHub Copilot MCP](https://docs.github.com/en/copilot/customizing-copilot/extending-copilot-chat-with-mcp?tool=vscode)).
+2. Use a **remote HTTP** server entry. VS Code’s reference format ([MCP configuration reference](https://code.visualstudio.com/docs/copilot/reference/mcp-configuration)):
+
+```json
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "voidrun-api-key",
+      "description": "VoidRun API key (X-API-Key)",
+      "password": true
+    }
+  ],
+  "servers": {
+    "voidrun": {
+      "type": "http",
+      "url": "https://platform.void-run.com/api/mcp",
+      "headers": {
+        "X-API-Key": "${input:voidrun-api-key}"
+      }
+    }
+  }
+}
+```
+
+3. Save the file, use **MCP: List Servers** / the editor **Start** affordance if shown, then open **Copilot Chat**, choose **Agent**, and open the **tools** picker to confirm VoidRun tools load.
+
+`type` must be **`http`** for VoidRun. VS Code tries **Streamable HTTP** first, then falls back to SSE for older servers ([HTTP and SSE](https://code.visualstudio.com/docs/copilot/reference/mcp-configuration#_http-and-server-sent-events-sse-servers)).
+
+## Claude Code {#claude-code}
+
+[Claude Code](https://docs.claude.com/en/docs/claude-code/mcp.md) is Anthropic’s CLI-centric workflow (terminal). Prefer **`--transport http`** for VoidRun.
+
+**One-off (user or local scope):**
+
+```bash
+claude mcp add --transport http voidrun https://platform.void-run.com/api/mcp \
+  --header "X-API-Key: YOUR_KEY_HERE"
+```
+
+Use **`--scope project`** to write the team-shared **`.mcp.json`** at the project root, or **`--scope user`** for all projects. Options such as **`--header`** must appear **before** the server name (see Claude Code MCP docs).
+
+**Project file (`.mcp.json`, committed without secrets):** Claude Code expands **`${VAR}`** in **`url`** and **`headers`**:
+
+```json
+{
+  "mcpServers": {
+    "voidrun": {
+      "type": "http",
+      "url": "https://platform.void-run.com/api/mcp",
+      "headers": {
+        "X-API-Key": "${VR_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+Export **`VR_API_KEY`** in the shell before launching **`claude`**, or rely on your OS environment manager. Use **`/mcp`** inside Claude Code to verify connection and tool counts.
+
+## Claude remote connectors {#claude-remote-connectors}
+
+Applies to **claude.ai**, **Claude Desktop**, **Cowork**, and mobile when using Anthropic’s hosted connector flow (not the legacy local-only `claude_desktop_config.json` stdio command list).
+
+Anthropic’s **custom connectors** path lets you attach a **remote MCP URL** from **claude.ai**, **Claude Desktop**, **Cowork**, and mobile, with traffic originating from **Anthropic’s cloud** (not only your laptop). That means:
+
+- Your MCP URL (**`https://platform.void-run.com/api/mcp`** for hosted VoidRun) must be reachable from the **public internet** (or you must allowlist [Anthropic IP ranges](https://platform.claude.com/docs/en/api/ip-addresses)).
+- Follow **Customize → Connectors** and Anthropic’s walkthrough: [Get started with custom connectors using remote MCP](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).
+
+<Note>
+Connector UIs evolve. If the connector flow does not let you attach a static **`X-API-Key`** header, use **Claude Code**, **Cursor**, or **VS Code** with the examples above, or ask your operator to front VoidRun with the auth model your connector expects.
+</Note>
+
+**Local-only MCP in Claude Desktop** (`claude_desktop_config.json` spawning a **stdio** command) is a **different** mechanism from remote connectors; VoidRun’s first-party endpoint is still **`/api/mcp`** over HTTP.
+
+## JetBrains + GitHub Copilot {#jetbrains-copilot}
+
+In supported JetBrains IDEs, open **GitHub Copilot Chat** in **Agent** mode, use the MCP / tools configuration UI to edit **`mcp.json`**, and add a **remote** HTTP server. GitHub’s examples use **`url`** plus headers (sometimes under **`requestInit.headers`**); mirror the VS Code pattern: same VoidRun **`url`** and **`X-API-Key`**. See [Extending Copilot Chat with MCP](https://docs.github.com/en/copilot/customizing-copilot/extending-copilot-chat-with-mcp?tool=jetbrains).
+
+## Other MCP-compatible tools
+
+Any editor or agent runtime that supports **remote MCP over HTTP** (Streamable HTTP, with optional SSE fallback) can reuse:
+
+- **URL:** `https://platform.void-run.com/api/mcp` (hosted) or `http://localhost:<port>/api/mcp` (local).
+- **Header:** `X-API-Key: <key>` (same as REST).
+
+Consult that product’s MCP documentation for the exact JSON schema (`headers` vs `requestInit`, env substitution, OAuth, etc.).
+
+### Hosted images and **`create_sandbox`**
+
+On the hosted platform, valid **system images** are typically **`code`**, **`max`**, and **`docker`** (see [System images](/environments/custom-images#system-images)). Pass an **`image`** value your deployment actually offers (from **`list_sandboxes`** / dashboard / **`GET /images`**), not a random tag, or **`create_sandbox`** may fail on hosts without that qcow2.
+
+### After server upgrades
+
+Reload the MCP server or the IDE window so the client refetches **`tools/list`** (no config edit if URL and auth are unchanged).
+
+## MCP Inspector (debugging) {#mcp-inspector-debugging}
+
+Useful to verify connectivity and tool names without the IDE.
+
+**CLI (list tools):**
+
+```bash
+npx @modelcontextprotocol/inspector --cli "https://platform.void-run.com/api/mcp" \
+  --transport http \
+  --header "X-API-Key: $VR_API_KEY" \
+  --method tools/list
+```
+
+The full sequence is **`initialize`** (capture **`Mcp-Session-Id`** from the response) then **`tools/call`** with that header on follow-up requests; **`--cli`** often handles this for simple calls. Check upstream Inspector docs for your Node version (Node **22.7.5+** may be required).
+
+**UI:** run **`npx @modelcontextprotocol/inspector`**, choose transport **streamable-http**, server URL **`https://…/api/mcp`**, and set **`X-API-Key`** in headers or auth.
+
+## Tools reference
+
+All sandbox-scoped tools take **`id`** as the sandbox **document id** (hex string from **`create_sandbox`** / **`list_sandboxes`**), not the DNS **name**, unless your workflow maps names to ids.
+
+| Tool | Purpose |
+|------|---------|
+| **`create_sandbox`** | Create a VM. Args: **`name`** (required, DNS-1123), optional **`image`**, **`cpu`**, **`memory`**, **`autoSleep`**, **`envVars`**. |
+| **`list_sandboxes`** | Paginated list. Optional **`page`**, **`limit`**. |
+| **`get_sandbox`** | **`id`** required. |
+| **`delete_sandbox`** | **`id`** required. |
+| **`execute_command`** | Shell in VM: **`id`**, **`command`**, optional **`timeout`** (1–300s), **`cwd`**, **`env`**. |
+| **`run_code`** | Snippet exec: **`id`**, **`code`**, optional **`language`** (python, javascript, typescript, bash, and aliases), **`timeout`**, **`cwd`**, **`env`**. |
+| **`read_file`** | **`id`**, **`path`** (absolute). Returns **text** (binary is not ideal over MCP). |
+| **`write_file`** | **`id`**, **`path`**, **`content`**. |
+| **`list_files`** | **`id`**, optional **`path`** (default **`/root`**). |
+| **`create_directory`** | **`id`**, **`path`**. |
+| **`delete_file`** | **`id`**, **`path`**. |
+| **`move_file`** | **`id`**, **`from`**, **`to`**. |
+| **`file_info`** | **`id`**, **`path`**. |
+| **`search_files`** | **`id`**, **`pattern`**, optional **`path`**. |
+| **`run_background_command`** | **`id`**, **`command`**, optional **`cwd`**, **`env`**, **`timeout`** (0 = no timeout). |
+| **`list_processes`** | **`id`**. |
+| **`kill_process`** | **`id`**, **`pid`**. |
+
+The server **auto-resumes** paused sandboxes where applicable before filesystem and exec operations.
+
+## MCP resources
+
+| URI | Type | Content |
+|-----|------|--------|
+| **`voidrun://sandboxes`** | Static | JSON list of org sandboxes. |
+| **`voidrun://images`** | Static | JSON list of images for **`create_sandbox`**. |
+| **`voidrun://sandbox/{id}/status`** | Template | JSON sandbox details. |
+| **`voidrun://sandbox/{id}/files{/path}`** | Template | File body (text-oriented). |
+
+Use **`resources/read`** with the exact URI. **Template** resources may not appear as separate chips in Cursor but still work where the client implements **`resources/read`**.
+
+## Response shapes (for agents)
+
+### Sandbox CRUD and list
+
+**`create_sandbox`**, **`get_sandbox`**, **`delete_sandbox`**, and **`list_sandboxes`** return the **same JSON envelope as REST**:
+
+```json
+{
+  "status": "success",
+  "message": "…",
+  "data": { },
+  "meta": { }
+}
+```
+
+- **`list_sandboxes`**: **`data`** is the array of sandboxes; **`meta`** includes **`page`**, **`limit`**, **`total`**, **`totalPages`**.
+- **`get_sandbox`** / **`create_sandbox`**: **`data`** is the sandbox object.
+- **`delete_sandbox`**: **`data`** may be null.
+
+**Agents:** parse the tool result body as JSON, then read **`data`** and **`meta`**. Some MCP clients wrap the payload again; unwrap until you see **`status`** / **`data`**.
+
+### Exec, filesystem, **`run_code`**
+
+- **`execute_command`**: structured stdout/stderr/exitCode style payload in the tool result (see REST **`/exec`**).
+- **`run_code`**: structured interpreter result (**`stdout`**, **`stderr`**, **`exitCode`**, etc.).
+- **Filesystem tools:** JSON or plain text as returned; **`read_file`** is usually raw file text in the tool body.
+
+## Example workflows
+
+### A. New sandbox, run command, delete
+
+1. **`create_sandbox`** with `{ "name": "agent-demo-001", "image": "code", "cpu": 1, "memory": 1024 }` (adjust **`image`** to your catalog).
+2. From **`data`**, read the sandbox **`id`**.
+3. **`execute_command`** with `{ "id": "<id>", "command": "uname -a" }`.
+4. **`delete_sandbox`** with `{ "id": "<id>" }`.
+
+### B. Edit a file in the VM
+
+1. **`write_file`** `{ "id": "<id>", "path": "/root/app.py", "content": "…" }`.
+2. **`execute_command`** `{ "id": "<id>", "command": "python3 /root/app.py" }`.
+
+### C. Long-running server
+
+1. **`run_background_command`** `{ "id": "<id>", "command": "python3 -m http.server 8080", "cwd": "/root" }`.
+2. **`list_processes`** to read the PID.
+3. **`kill_process`** when done.
+
+## Instructing an LLM agent
+
+Use **concrete tool names** and the server name you configured (example **`voidrun`**):
+
+- “Use the **voidrun** MCP server: **`list_sandboxes`**, then **`create_sandbox`** if none match name X, then **`execute_command`**.”
+- “For **`list_sandboxes`** / **`get_sandbox`** / **`create_sandbox`** / **`delete_sandbox`**, the JSON matches REST: read **`data`** and **`meta`**.”
+- “The sandbox id argument is always **`id`** (hex document id), not a display name.”
+- “Do not put API keys in the repository; use **`mcp.json`** env substitution or the MCP UI.”
+
+Optional: add a **Cursor rule** or **`AGENTS.md`** in your repo linking to this page.
+
+## Troubleshooting
+
+| Symptom | What to check |
+|---------|----------------|
+| MCP disconnects or **401** | **`X-API-Key`** value, key not revoked, same host as REST. |
+| **`tools/list`** empty or stale | Reload MCP or toggle the server; confirm the API process exposes MCP (logs). |
+| Auth errors about org context | Confirm **`X-API-Key`** matches a valid key for the environment you are calling. |
+| **`create_sandbox`** fails immediately | **Hosted:** contact VoidRun support with the error details. **Self-hosted:** check API server logs and base image or storage provisioning (see your operator’s runbooks). |
+| **`read_file`** garbled | Binary files: prefer REST download or **`execute_command`** with base64. |
+| Cursor shows only two resources | **Template** URIs may not show as chips; call **`resources/read`** with the full URI. |
+
+**Logs:** API server stdout; **Cursor** **Output → MCP**; **VS Code** MCP output channel; self-hosted installs follow your operator’s logging configuration.
+
+## Related documentation
+
+<CardGroup cols={2}>
+  <Card title="SDKs & API" icon="code" href="/sdks/overview">
+    REST auth, **`VR_API_KEY`**, **`VR_API_URL`**, and how SDKs relate to HTTP.
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/getting-started/quickstart">
+    First sandbox with SDKs, CLI, and curl.
+  </Card>
+  <Card title="Shell execution" icon="terminal" href="/core-concepts/shell-execution">
+    Exec, stream, background, and PTY concepts aligned with the API.
+  </Card>
+  <Card title="Self-hosted" icon="server" href="/advanced/self-hosted">
+    Base URL and operator-specific differences.
+  </Card>
+</CardGroup>

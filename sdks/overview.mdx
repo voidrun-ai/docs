@@ -58,19 +58,9 @@ Both SDKs use the **same packaged default API base URL** as OpenAPI **`servers`*
 
 This documentation site includes an **API Reference** tab generated from a bundled copy of the spec at **`docs/openapi/voidrun.yml`** (synced from `voidrun/openapi.yml` in the monorepo: refresh the copy when the canonical spec changes). The spec’s **`servers`** entry (e.g. `https://platform.void-run.com/api`) drives the API playground base URL.
 
-## Documentation coverage (roadmap)
-
-The table below tracks common gaps called out in a recent docs audit. It is **not** a promise of priority: use it for planning.
-
-| Topic | Status |
-|-------|--------|
-| Dead `/sdks/typescript` / `/api-reference/overview` links | **Addressed**: this hub + **[TypeScript](/sdks/typescript)** / **[Python](/sdks/python)** guides + **API Reference** tab. |
-| Navbar logos missing | **Addressed**: Navbar uses **`on-light-theme.png`** and **`on-dark-theme.png`** (2× raster, **376×96**, **transparent** PNG from the matching SVG sources). **`docs.json`** points at PNG for consistent production rendering; **`.svg`** files stay in `docs/logo/` for edits and re-export. Mintlify maps **`logo.light`** to the asset for **dark UI** and **`logo.dark`** to the asset for **light UI** (see [Maple settings](https://maple.mintlify.app/essentials/settings)). Favicon: `/favicon.png` from [void-run.com](https://void-run.com) `/icon`. |
-| OpenAPI wired for Mintlify | **Addressed**: `navigation.tabs` + `openapi/voidrun.yml`. |
-| Host/path consistency (`/v1` vs `/api`, `Bearer` vs `X-API-Key`, dashboard URLs) | **Addressed** in guides: default base URL in OpenAPI/SDKs, `X-API-Key`, **`VR_API_KEY`**; **`VR_API_URL`** documented for self-hosted only. |
-| Dedicated guides: PTY, background commands, file watch | **Addressed**: short guides under Core Concepts / Advanced; OpenAPI remains canonical for request shapes. |
-| Self-hosted deployments | **Stub**: [Self-hosted deployments](/advanced/self-hosted) for base URL and operator-specific notes. |
-| Code samples in Introduction / Quickstart / core MDX | **Addressed**: aligned with current SDK method names, `image` field, single `.data` for exec, interpreter fields at top level. |
+<Note>
+**Contributors:** keep **`docs/openapi/voidrun.yml`** in sync with **`voidrun/openapi.yml`**. MCP tools follow the same HTTP contract as REST; extend **`voidrun/openapi.yml`**, MCP handlers, and this site’s OpenAPI copy together when fields change. **Branding:** Mintlify maps **`logo.light`** to the navbar asset in **dark** UI and **`logo.dark`** in **light** UI (see [Mintlify appearance and branding](https://mintlify.com/docs/organize/settings)).
+</Note>
 
 ## Language SDK guides
 
@@ -108,6 +98,9 @@ Use the SDK READMEs and `examples/` directories for copy-pastable patterns.
 ## Related docs
 
 <CardGroup cols={2}>
+  <Card title="VoidRun MCP" icon="plug" href="/integrations/mcp">
+    Cursor **`mcp.json`**, Streamable HTTP URL, tools, resources, and agent troubleshooting.
+  </Card>
   <Card title="Examples" icon="lightbulb" href="/examples/overview">
     Detailed walkthroughs: interpreter, CI, ETL, PTY, file watch, list/cleanup, and more.
   </Card>
