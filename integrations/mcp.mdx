@@ -213,7 +213,7 @@ All sandbox-scoped tools take **`id`** as the sandbox **document id** (hex strin
 
 | Tool | Purpose |
 |------|---------|
-| **`create_sandbox`** | Create a VM. Args: **`name`** (required, DNS-1123), optional **`image`**, **`cpu`**, **`memory`**, **`autoSleep`**, **`envVars`**. |
+| **`create_sandbox`** | Create a VM. Same fields as REST **`CreateSandboxRequest`**: **`name`** (required, DNS-1123), optional **`image`**, **`cpu`**, **`mem`**, **`orgId`**, **`userId`**, **`sync`**, **`envVars`**, **`autoSleep`**, **`region`**, **`refId`**. |
 | **`list_sandboxes`** | Paginated list. Optional **`page`**, **`limit`**. |
 | **`get_sandbox`** | **`id`** required. |
 | **`delete_sandbox`** | **`id`** required. |
@@ -275,7 +275,7 @@ Use **`resources/read`** with the exact URI. **Template** resources may not appe
 
 ### A. New sandbox, run command, delete
 
-1. **`create_sandbox`** with `{ "name": "agent-demo-001", "image": "code", "cpu": 1, "memory": 1024 }` (adjust **`image`** to your catalog).
+1. **`create_sandbox`** with `{ "name": "agent-demo-001", "image": "code", "cpu": 1, "mem": 1024 }` (adjust **`image`** to your catalog).
 2. From **`data`**, read the sandbox **`id`**.
 3. **`execute_command`** with `{ "id": "<id>", "command": "uname -a" }`.
 4. **`delete_sandbox`** with `{ "id": "<id>" }`.

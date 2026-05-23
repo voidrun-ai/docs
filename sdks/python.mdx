@@ -69,6 +69,69 @@ from voidrun import (
 )
 ```
 
+### Create sandbox (`create_sandbox`)
+
+`vr.create_sandbox(...)` (and **`await vr.create_sandbox(...)`** on **`AsyncVoidRun`**) call **`POST /sandboxes`**. The body matches OpenAPI **`CreateSandboxRequest`**. See [API Reference](/sdks/overview#interactive-api-reference) → **Sandboxes** → **Create sandbox**.
+
+Use **snake_case** keyword arguments. The client also accepts **camelCase** aliases where noted (same as the TypeScript SDK field names).
+
+```python
+sandbox = vr.create_sandbox(
+    name="my-job",
+    image="code",
+    cpu=2,
+    mem=2048,
+    env_vars={"PYTHONUNBUFFERED": "1"},
+    auto_sleep=True,
+    sync=True,
+)
+```
+
+#### Options
+
+| Option (Python) | Alias | Type | Required | Default | Description |
+|-----------------|-------|------|----------|---------|-------------|
+| `name` | — | `str` | No* | `sdbx-<timestamp>` | DNS-1123 subdomain label for the VM. The client generates a name if omitted. |
+| `image` | — | `str` | No | `"code"` (`DEFAULT_SANDBOX_IMAGE`) | Image id in `name` or `name:ver` form. Hosted images: **`code`**, **`max`**, **`docker`** — [System images](/environments/custom-images#system-images). |
+| `cpu` | — | `int` | No | `1` | vCPU count. API allows **1–8**. |
+| `mem` | — | `int` | No | `1024` | Memory in **MiB**. API allows **1024–16384**. |
+| `org_id` | `orgId` | `str` | No | API key / `VR_ORG_ID` | Organization that owns the sandbox. See [Organization and user identity](#organization-and-user-identity) below. |
+| `user_id` | `userId` | `str` | No | From API key | User attributed as the sandbox creator. See [Organization and user identity](#organization-and-user-identity) below. |
+| `sync` | — | `bool` | No | `True` | Block until the guest agent is ready (~2s check) when `True`. |
+| `env_vars` | `envVars` | `dict[str, str]` | No | — | Environment variables for the sandbox VM. |
+| `auto_sleep` | `autoSleep` | `bool` | No | — | Enable platform **auto-pause** after idle. See [Sandbox lifecycle](/core-concepts/lifecycle). |
+| `region` | — | `str` | No | — | Target region when supported by your account. |
+| `ref_id` | `refId` | `str` | No | — | External reference id for your workflows. |
+
+\* **`name`** is required on the REST contract; the Python client supplies a generated name when you omit it.
+
+#### Organization and user identity
+
+Every **`POST /sandboxes`** call uses **`X-API-Key`** (or **`VR_API_KEY`** / **`API_KEY`** in the client). The platform resolves **organization** and **user** from that key:
+
+- **`orgId`** — the organization the API key belongs to.
+- **`userId`** — the user associated with the key (typically the key creator).
+
+**When you omit `org_id` and `user_id`** (recommended), the API uses the org and user from the key. If you set **`VR_ORG_ID`** on the client, Python may send that as **`org_id`** when you do not pass one explicitly; it must still match the key’s organization.
+
+**When you pass `org_id` / `user_id`** (or **`orgId`** / **`userId`**), the API validates that:
+
+1. The API key is authorized for the given organization.
+2. The given user is an owner or member of that organization.
+
+Mismatched key, user, and org return an error (for example **403 Forbidden**).
+
+<Note>
+The VoidRun MCP tool **`create_sandbox`** uses the same **`CreateSandboxRequest`** fields as REST and this SDK. See [VoidRun MCP](/integrations/mcp).
+</Note>
+
+**Context managers** call **`remove()`** / **`remove_async()`** on exit:
+
+```python
+with vr.create_sandbox(name="demo", mem=2048) as sandbox:
+    sandbox.exec("echo ok")
+```
+
 ## Clients: `VoidRun` and `AsyncVoidRun`
 
 | Method | Sync | Async |
@@ -87,7 +150,7 @@ from voidrun import (
 
 ### Context managers
 
-- **Sync:** `with vr.create_sandbox(...) as sandbox:` → **`remove()`** on exit  
+- **Sync:** `with vr.create_sandbox(...) as sandbox:` → **`remove()`** on exit (see [Create sandbox](#create-sandbox-create_sandbox) above).  
 - **Async:** `async with await vr.create_sandbox(...) as sandbox:` → **`remove_async()`** on exit  
 
 ## Sandbox lifecycle
@@ -204,7 +267,7 @@ Full patterns: [PTY](/core-concepts/pty) and the package README.
 
 ## Naming: snake_case and camelCase
 
-**`create_sandbox`** accepts **snake_case** kwargs aligned with Python; many options also accept **camelCase** aliases (e.g. **`env_vars`** / **`envVars`**) where the client documents them.
+Beyond **`create_sandbox`**, most Python methods use **snake_case**. A few kwargs accept **camelCase** aliases for parity with TypeScript (documented per method in the PyPI readme).
 
 ## Error handling
 

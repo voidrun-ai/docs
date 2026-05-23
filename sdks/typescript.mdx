@@ -48,17 +48,61 @@ const vr = new VoidRun({
 Hosted VoidRun: you only need **`VR_API_KEY`**. For **self-managed** APIs, set **`VR_API_URL`** (or **`baseUrl`**) to your deployment’s root (include `/api` if that is how the server is mounted). See [Self-hosted deployments](/advanced/self-hosted).
 </Note>
 
-### Defaults for `createSandbox`
+### Create sandbox (`createSandbox`)
 
-If you omit fields, defaults match the Python SDK:
+`vr.createSandbox(options)` calls **`POST /sandboxes`**. The request body matches OpenAPI **`CreateSandboxRequest`** (see [API Reference](/sdks/overview#interactive-api-reference) → **Sandboxes** → **Create sandbox**).
 
-| Field | Default |
-|-------|---------|
-| `image` | `code` |
-| `cpu` | `1` |
-| `mem` | `1024` (MB) |
+```typescript
+const sandbox = await vr.createSandbox({
+  name: 'my-job',
+  image: 'code',
+  cpu: 2,
+  mem: 2048,
+  envVars: { NODE_ENV: 'production' },
+  autoSleep: true,
+  sync: true,
+});
+```
 
-Other useful `createSandbox` options: `name`, `orgId`, `userId`, `sync`, `envVars`, `autoSleep`, `region`, `refId`.
+#### Options
+
+| Option | Type | Required | Default | Description |
+|--------|------|----------|---------|-------------|
+| `name` | `string` | No* | `sdbx-<timestamp>` | DNS-1123 subdomain label for the VM. The SDK generates a name if you omit it; the API still requires a name on the wire. |
+| `image` | `string` | No | `code` | Image id in `name` or `name:ver` form. On hosted VoidRun, common system images are **`code`**, **`max`**, and **`docker`** — see [System images](/environments/custom-images#system-images). |
+| `cpu` | `number` | No | `1` | vCPU count. API allows **1–8**. |
+| `mem` | `number` | No | `1024` | Memory in **MiB**. API allows **1024–16384**. |
+| `orgId` | `string` | No | From API key | Organization that owns the sandbox. See [Organization and user identity](#organization-and-user-identity) below. |
+| `userId` | `string` | No | From API key | User attributed as the sandbox creator. See [Organization and user identity](#organization-and-user-identity) below. |
+| `sync` | `boolean` | No | `true` | When `true`, creation blocks until the guest agent passes a fast readiness check (~2s timeout). Set `false` only if you intentionally poll readiness yourself. |
+| `envVars` | `Record<string, string>` | No | — | Environment variables injected into the sandbox (visible to **`exec`**, **`runCode`**, and shells). Prefer this over putting secrets in command strings. |
+| `autoSleep` | `boolean` | No | — | When `true`, the platform may **auto-pause** the VM after idle time. See [Sandbox lifecycle](/core-concepts/lifecycle). |
+| `region` | `string` | No | — | Target region (for example `eu`) when your account supports regional placement. |
+| `refId` | `string` | No | — | External reference id for your own tracking (billing, tickets, workflow run id). |
+
+\* **`name`** is required on the REST contract; the TypeScript client supplies a generated name when you omit it.
+
+#### Organization and user identity
+
+Every **`POST /sandboxes`** call is authenticated with **`X-API-Key`**. The platform resolves **organization** and **user** from that key:
+
+- **`orgId`** — the organization the API key belongs to.
+- **`userId`** — the user associated with the key (typically the user who created the key).
+
+**When you omit `orgId` and `userId`** (recommended), the API uses those resolved values. The TypeScript client sends empty strings by default, which the service treats as “use the key’s org and user.”
+
+**When you pass `orgId` and/or `userId`**, the API validates that:
+
+1. The API key is authorized for the given **`orgId`** (the key must belong to that organization).
+2. The given **`userId`** is related to that organization (owner or member).
+
+If the key, user, and org are not consistent, the request fails (for example **403 Forbidden**). You cannot create a sandbox under another org or as an unrelated user.
+
+<Note>
+The VoidRun MCP tool **`create_sandbox`** accepts the same **`CreateSandboxRequest`** fields as REST and the SDKs (including **`mem`**, **`orgId`**, **`userId`**, **`envVars`**, **`autoSleep`**, **`sync`**, **`region`**, **`refId`**). See [VoidRun MCP](/integrations/mcp).
+</Note>
+
+Returns a **`VRSandbox`** instance. Use **`sandbox.remove()`** (or **`vr.removeSandbox(id)`**) when you are done. For long CI-style jobs that must not idle-pause, pass **`autoSleep: false`** (see [GitHub Actions example](/examples/github-actions)).
 
 ## Client: `VoidRun`
 
