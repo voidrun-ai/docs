@@ -99,8 +99,9 @@ sandbox = vr.create_sandbox(
 | `user_id` | `userId` | `str` | No | From API key | User attributed as the sandbox creator. See [Organization and user identity](#organization-and-user-identity) below. |
 | `sync` | — | `bool` | No | `True` | Block until the guest agent is ready (~2s check) when `True`. |
 | `env_vars` | `envVars` | `dict[str, str]` | No | — | Environment variables for the sandbox VM. |
-| `auto_sleep` | `autoSleep` | `bool` | No | — | Enable platform **auto-pause** after idle. See [Sandbox lifecycle](/core-concepts/lifecycle). |
+| `auto_sleep` | `autoSleep` | `bool` | No | — | Enable platform **auto-snapshot** after idle; the sandbox wakes on the next request. See [Sandbox lifecycle](/core-concepts/lifecycle). |
 | `region` | — | `str` | No | — | Target region when supported by your account. |
+| `publish_ports` | `publishPorts` | `list[int]` | No | — | TCP ports to expose as public HTTPS URLs (up to 4). See [Public URLs](/networking/public-urls). |
 | `ref_id` | `refId` | `str` | No | — | External reference id for your workflows. |
 
 \* **`name`** is required on the REST contract; the Python client supplies a generated name when you omit it.
@@ -155,9 +156,41 @@ with vr.create_sandbox(name="demo", mem=2048) as sandbox:
 
 ## Sandbox lifecycle
 
-On **`Sandbox`**: `start` / `stop` / `pause` / `resume` (and `*_async` where applicable), **`remove()`** / **`remove_async()`**, **`info()`** (returns `self`). Deprecated aliases **`delete`** / **`delete_async`** map to remove.
+On **`Sandbox`**:
+
+- **`sleep()`** / **`sleep_async()`** — snapshot the VM (status becomes `snapshotted`)
+- **`wake()`** / **`wake_async()`** — restore from snapshot back to `running`
+- **`start()`** / **`start_async()`** — recovery boot for `snapshotted` / `killed` / `error` sandboxes
+- **`remove()`** / **`remove_async()`** — delete the sandbox on the API
+- **`info()`** — returns `self` (refreshed view)
+
+Deprecated aliases **`delete`** / **`delete_async`** map to remove.
+
+Any API call against a `snapshotted` sandbox transparently wakes it, so you usually don't need to call **`wake()`** yourself. See [Sandbox lifecycle](/core-concepts/lifecycle) for the full state machine.
 
 Notable attributes include **`id`**, **`name`**, **`cpu`**, **`mem`**, **`status`**, **`image`**, **`env_vars`**, **`region`**, **`org_id`**, etc.
+
+## Public URLs
+
+Publish ports at create time (or update them later), then fetch the public URLs from the sandbox instance:
+
+```python
+sandbox = vr.create_sandbox(
+    name="preview",
+    cpu=2,
+    mem=2048,
+    publish_ports=[8080],
+)
+
+urls = sandbox.get_public_urls()
+# [SandboxPublicURL(port=8080, url="https://s...-8080.sb.void-run.com")]
+
+preview = sandbox.get_public_url(8080)
+if preview is not None:
+    print(preview.url)
+```
+
+**`AsyncVoidRun`** exposes **`get_public_urls_async`** and **`get_public_url_async`** on the sandbox. See [Public URLs](/networking/public-urls) for the full behaviour, including cold-wake on the first request.
 
 ## Shell execution (`exec`)
 
@@ -297,7 +330,7 @@ python3 examples/sync_usage.py
 
 ## OpenAPI regeneration
 
-Regenerate **`voidrun.api_client`** when **`voidrun/openapi.yml`** changes. After regen, confirm **sandbox `status`** enum values still match the live server (`running`, `stopped`, `paused`, `error`, `killed`, …).
+Regenerate **`voidrun.api_client`** when **`voidrun/openapi.yml`** changes. After regen, confirm **sandbox `status`** enum values still match the live server: **`running`**, **`snapshotted`**, **`error`**, **`killed`**, **`deleted`**.
 
 ## Next steps
 

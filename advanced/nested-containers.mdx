@@ -30,7 +30,7 @@ VoidRun's MicroVM architecture provides a massive advantage over traditional con
 
 ## Running Docker
 
-Docker runs inside the sandbox when you use the **`docker`** [system image](/environments/custom-images#system-images) (Docker-in-Docker). It is larger (~20 GB) than **`code`** or **`max`**: allocate enough **CPU**, **memory**, and **disk**. Confirm versions with **`GET /images`** or the dashboard.
+Docker runs inside the sandbox when you use the **`docker-lite`** or **`docker`** [system image](/environments/custom-images#system-images) (Docker-in-Docker). Use **`docker-lite`** for the lighter Alpine-based option with Docker started during boot; use **`docker`** when you want the larger Debian-based image for heavier container or K3s-style workloads. Confirm versions with **`GET /images`** or the dashboard.
 
 ### Create a Docker-Enabled Sandbox
 
@@ -43,7 +43,7 @@ const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 // Create sandbox with Docker pre-installed (image name may vary by deployment)
 const sandbox = await vr.createSandbox({
   name: 'docker-sandbox',
-  image: 'docker',
+  image: 'docker-lite',
   cpu: 4,
   mem: 4096 // 4GB RAM recommended for Docker workloads
 });
@@ -52,8 +52,8 @@ const sandbox = await vr.createSandbox({
 const dockerCheck = await sandbox.exec({ command: 'docker --version' });
 console.log('Docker version:', dockerCheck.data?.stdout);
 
-// Check Docker daemon status
-const daemonStatus = await sandbox.exec({ command: 'systemctl status docker --no-pager' });
+// Check Docker daemon readiness
+const daemonStatus = await sandbox.exec({ command: "docker info --format '{{.ServerVersion}}'" });
 console.log('Docker daemon:', daemonStatus.data?.stdout);
 ```
 
@@ -66,7 +66,7 @@ vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
 # Create sandbox with Docker pre-installed (image name may vary by deployment)
 sandbox = vr.create_sandbox(
     name="docker-sandbox",
-    image="docker",
+    image="docker-lite",
     cpu=4,
     mem=4096  # 4GB RAM recommended for Docker workloads
 )
@@ -74,20 +74,20 @@ sandbox = vr.create_sandbox(
 docker_check = sandbox.exec("docker --version")
 print("Docker version:", docker_check.data.stdout)
 
-# Check Docker daemon status
-daemon_status = sandbox.exec("systemctl status docker --no-pager")
+# Check Docker daemon readiness
+daemon_status = sandbox.exec("docker info --format '{{.ServerVersion}}'")
 print("Docker daemon:", daemon_status.data.stdout)
 ```
 
 ```bash CLI
 # Create sandbox with Docker pre-installed
-voidrun create --name docker-sandbox --template docker --cpu 4 --mem 4096
+voidrun create --name docker-sandbox --template docker-lite --cpu 4 --mem 4096
 
 # Verify Docker is running
 voidrun exec <sandbox-id> --command "docker --version"
 
-# Check Docker daemon status
-voidrun exec <sandbox-id> --command "systemctl status docker --no-pager"
+# Check Docker daemon readiness
+voidrun exec <sandbox-id> --command "docker info --format '{{.ServerVersion}}'"
 ```
 
 ```bash cURL
@@ -95,7 +95,7 @@ voidrun exec <sandbox-id> --command "systemctl status docker --no-pager"
 curl -X POST "https://platform.void-run.com/api/sandboxes" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"name": "docker-sandbox", "image": "docker", "cpu": 4, "mem": 4096}'
+  -d '{"name": "docker-sandbox", "image": "docker-lite", "cpu": 4, "mem": 4096}'
 
 # Verify Docker is running
 curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
@@ -250,6 +250,8 @@ curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
 ## Running K3s (Lightweight Kubernetes)
 
 K3s is a lightweight Kubernetes distribution perfect for testing and development. Run it inside your VoidRun sandbox for ephemeral Kubernetes environments.
+
+For the K3s examples below, prefer the heavier Debian-based **`docker`** image instead of **`docker-lite`**.
 
 <Note>
 K3s requires significant resources. We recommend allocating at least **4 CPU cores and 8GB RAM** for K3s workloads.

@@ -71,6 +71,7 @@
             "group": "Networking",
             "pages": [
               "networking/internet-access",
+              "networking/public-urls",
               "networking/tailscale"
             ]
           },

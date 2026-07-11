@@ -69,15 +69,16 @@ const sandbox = await vr.createSandbox({
 | Option | Type | Required | Default | Description |
 |--------|------|----------|---------|-------------|
 | `name` | `string` | No* | `sdbx-<timestamp>` | DNS-1123 subdomain label for the VM. The SDK generates a name if you omit it; the API still requires a name on the wire. |
-| `image` | `string` | No | `code` | Image id in `name` or `name:ver` form. On hosted VoidRun, common system images are **`code`**, **`max`**, and **`docker`** — see [System images](/environments/custom-images#system-images). |
+| `image` | `string` | No | `code` | Image id in `name` or `name:ver` form. On hosted VoidRun, common system images are **`code`**, **`docker-lite`**, **`max`**, and **`docker`** — see [System images](/environments/custom-images#system-images). |
 | `cpu` | `number` | No | `1` | vCPU count. API allows **1–8**. |
 | `mem` | `number` | No | `1024` | Memory in **MiB**. API allows **1024–16384**. |
 | `orgId` | `string` | No | From API key | Organization that owns the sandbox. See [Organization and user identity](#organization-and-user-identity) below. |
 | `userId` | `string` | No | From API key | User attributed as the sandbox creator. See [Organization and user identity](#organization-and-user-identity) below. |
 | `sync` | `boolean` | No | `true` | When `true`, creation blocks until the guest agent passes a fast readiness check (~2s timeout). Set `false` only if you intentionally poll readiness yourself. |
 | `envVars` | `Record<string, string>` | No | — | Environment variables injected into the sandbox (visible to **`exec`**, **`runCode`**, and shells). Prefer this over putting secrets in command strings. |
-| `autoSleep` | `boolean` | No | — | When `true`, the platform may **auto-pause** the VM after idle time. See [Sandbox lifecycle](/core-concepts/lifecycle). |
+| `autoSleep` | `boolean` | No | — | When `true`, the platform **auto-snapshots** the VM after idle time and wakes it on the next request. See [Sandbox lifecycle](/core-concepts/lifecycle). |
 | `region` | `string` | No | — | Target region (for example `eu`) when your account supports regional placement. |
+| `publishPorts` | `number[]` | No | — | TCP ports to expose as public HTTPS URLs (up to 4). See [Public URLs](/networking/public-urls). |
 | `refId` | `string` | No | — | External reference id for your own tracking (billing, tickets, workflow run id). |
 
 \* **`name`** is required on the REST contract; the TypeScript client supplies a generated name when you omit it.
@@ -124,15 +125,40 @@ console.log(meta.total, meta.totalPages);
 
 On the sandbox instance:
 
-- `start()`, `stop()`, `pause()`, `resume()`
-- `remove()`: delete the sandbox on the API
-- `info()`: returns `Promise<this>` (refreshed view)
+- `sleep()` — snapshot the VM (status becomes `snapshotted`)
+- `wake()` — restore from snapshot back to `running`
+- `start()` — recovery boot for `snapshotted` / `killed` / `error` sandboxes
+- `remove()` — delete the sandbox on the API
+- `info()` — returns `Promise<this>` (refreshed view)
+
+Any API call against a `snapshotted` sandbox transparently wakes it, so you usually don't need to call `wake()` yourself. See [Sandbox lifecycle](/core-concepts/lifecycle) for the full state machine.
 
 ```typescript
 const sandbox = await vr.createSandbox({ name: 'demo', cpu: 2, mem: 2048 });
 await sandbox.exec({ command: 'echo ok' });
 await sandbox.remove();
 ```
+
+## Public URLs
+
+Publish ports at create time or update them later, then fetch the public URLs from the sandbox instance:
+
+```typescript
+const sandbox = await vr.createSandbox({
+  name: 'preview',
+  cpu: 2,
+  mem: 2048,
+  publishPorts: [8080],
+});
+
+const urls = await sandbox.getPublicUrls();
+// [{ port: 8080, url: 'https://s...-8080.sb.void-run.com' }]
+
+const preview = await sandbox.getPublicUrl(8080);
+console.log(preview?.url);
+```
+
+See [Public URLs](/networking/public-urls) for the full behaviour, including cold-wake on the first request.
 
 ## Shell execution (`exec`)
 

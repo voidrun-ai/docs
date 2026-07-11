@@ -5,7 +5,7 @@ description: Welcome to VoidRun - the modern AI Sandbox platform for secure code
 
 # Welcome to VoidRun
 
-VoidRun is a modern sandbox environment that provisions highly secure, isolated MicroVMs for AI agents and developers. Execute code safely with enterprise-grade security and lightning-fast performance.
+VoidRun is a modern sandbox environment that provisions highly secure, isolated MicroVMs for AI agents and developers. Execute code safely with production-grade security and lightning-fast performance.
 
 <CardGroup cols={2}>
   <Card title="🚀 Quick Start" icon="rocket" href="/getting-started/quickstart">
@@ -24,7 +24,7 @@ VoidRun provides isolated MicroVM environments designed for AI workloads and dev
 
 <CardGroup cols={3}>
   <Card title="⚡ Performance" icon="bolt">
-    Infinite running sandboxes with auto-sleep after 5 minutes of idle time. Resume in under 200ms.
+    Sandboxes run without a hard timeout. Idle sandboxes auto-sleep and wake on the next request in a fraction of a second.
   </Card>
   <Card title="🐳 Flexible Environments" icon="container-storage">
     Custom Docker images supported. Run Docker and K3s natively inside sandboxes.
@@ -55,10 +55,10 @@ VoidRun architecture is built on MicroVMs for maximum isolation and security:
     Run commands, upload files, and execute code in multiple languages securely.
   </Step>
   <Step title="Manage Lifecycle">
-    Sandboxes run infinitely with auto-sleep. Resume instantly when needed.
+    Sandboxes run without a hard timeout, auto-sleep when idle, and wake on the next request.
   </Step>
   <Step title="Clean Up">
-    Delete sandboxes when finished, or let them hibernate for later use.
+    Delete sandboxes when finished, or let them stay snapshotted for later use.
   </Step>
 </Steps>
 

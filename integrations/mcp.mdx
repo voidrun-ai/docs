@@ -184,7 +184,7 @@ Consult that product’s MCP documentation for the exact JSON schema (`headers` 
 
 ### Hosted images and **`create_sandbox`**
 
-On the hosted platform, valid **system images** are typically **`code`**, **`max`**, and **`docker`** (see [System images](/environments/custom-images#system-images)). Pass an **`image`** value your deployment actually offers (from **`list_sandboxes`** / dashboard / **`GET /images`**), not a random tag, or **`create_sandbox`** may fail on hosts without that qcow2.
+On the hosted platform, valid **system images** are typically **`code`**, **`docker-lite`**, **`max`**, and **`docker`** (see [System images](/environments/custom-images#system-images)). Pass an **`image`** value your deployment actually offers (from **`list_sandboxes`** / dashboard / **`GET /images`**), not a random tag, or **`create_sandbox`** may fail on hosts without that qcow2.
 
 ### After server upgrades
 
@@ -213,7 +213,7 @@ All sandbox-scoped tools take **`id`** as the sandbox **document id** (hex strin
 
 | Tool | Purpose |
 |------|---------|
-| **`create_sandbox`** | Create a VM. Same fields as REST **`CreateSandboxRequest`**: **`name`** (required, DNS-1123), optional **`image`**, **`cpu`**, **`mem`**, **`orgId`**, **`userId`**, **`sync`**, **`envVars`**, **`autoSleep`**, **`region`**, **`refId`**. |
+| **`create_sandbox`** | Create a VM. Same fields as REST **`CreateSandboxRequest`**: **`name`** (required, DNS-1123), optional **`image`**, **`cpu`**, **`mem`**, **`orgId`**, **`userId`**, **`sync`**, **`envVars`**, **`autoSleep`**, **`region`**, **`publishPorts`**, **`refId`**. |
 | **`list_sandboxes`** | Paginated list. Optional **`page`**, **`limit`**. |
 | **`get_sandbox`** | **`id`** required. |
 | **`delete_sandbox`** | **`id`** required. |
@@ -231,7 +231,7 @@ All sandbox-scoped tools take **`id`** as the sandbox **document id** (hex strin
 | **`list_processes`** | **`id`**. |
 | **`kill_process`** | **`id`**, **`pid`**. |
 
-The server **auto-resumes** paused sandboxes where applicable before filesystem and exec operations.
+The server **auto-wakes** snapshotted sandboxes before filesystem and exec operations, so agents don't need to check status first.
 
 ## MCP resources
 

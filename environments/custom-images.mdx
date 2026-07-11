@@ -1,11 +1,11 @@
 ---
 title: Custom Images
-description: "System images code, max, and docker: choosing an image at sandbox creation and listing the catalog."
+description: "System images code, docker-lite, max, and docker: choosing an image at sandbox creation and listing the catalog."
 ---
 
 # Custom Images
 
-VoidRun runs each sandbox from a **catalog image** you select with the **`image`** field (and optional **`name:version`** tag). The hosted platform ships **three system images**: **`code`**, **`max`**, and **`docker`**: documented below. You still get **MicroVM isolation** and fast resume for sleeping sandboxes.
+VoidRun runs each sandbox from a **catalog image** you select with the **`image`** field (and optional **`name:version`** tag). The hosted platform ships **four system images**: **`code`**, **`docker-lite`**, **`max`**, and **`docker`**: documented below. You still get **MicroVM isolation** and fast wake for snapshotted sandboxes.
 
 ## System images
 
@@ -14,8 +14,9 @@ These are the **built-in system images** on the VoidRun platform (your dashboard
 | Image | Base | What you use it for | Notes |
 |-------|------|---------------------|--------|
 | **`code`** | Alpine (thin) | Python, JavaScript, Node.js, TypeScript, interpreters, and most SDK examples | **Time to interact (TTI) &lt; ~300 ms** on the platform; ~5 GB image size. |
+| **`docker-lite`** | Alpine + Docker | Lightweight Docker-in-Docker workflows with Docker preinstalled and started during boot | Smaller than **`docker`** (~10 GB target); good default for most container tasks on Alpine. |
 | **`max`** | Debian | General-purpose Linux, broader compatibility with Debian/Ubuntu-style tooling and scripts | **TTI &lt; ~2 s**; ~5 GB image size. |
-| **`docker`** | Docker-in-Docker | Running Docker (and similar container workflows) **inside** the sandbox | Larger footprint (**~20 GB**); allocate enough **memory** and **disk** for the daemon and your containers. |
+| **`docker`** | Debian + Docker | Heavier Docker/K3s-style container workflows inside the sandbox | Larger footprint (**~20 GB**); allocate enough **memory** and **disk** for the daemon and your containers. |
 
 <Note>
 You confirm exact names, versions, and sizes in the [dashboard](https://dash.void-run.com) or with **`GET /images`**. Self-hosted deployments may expose a different catalog: see [Self-hosted deployments](/advanced/self-hosted).
@@ -33,13 +34,13 @@ When you create a sandbox with a given image, VoidRun:
 
 <CardGroup cols={3}>
   <Card title="🚀 Fast resume" icon="bolt">
-    Sleeping sandboxes resume quickly; cold boot time depends on image size (**docker** is heavier than **code**).
+    Snapshotted sandboxes wake quickly; cold boot time depends on image size (**docker** is heavier than **code**).
   </Card>
   <Card title="🔒 Full isolation" icon="shield-lock">
     Each sandbox runs in its own MicroVM, regardless of image.
   </Card>
   <Card title="📦 Catalog + operators" icon="container-storage">
-    You start from **code** / **max** / **docker**; operators may add more entries returned by **`GET /images`**.
+    You start from **code** / **docker-lite** / **max** / **docker**; operators may add more entries returned by **`GET /images`**.
   </Card>
 </CardGroup>
 
@@ -144,16 +145,16 @@ sandbox.remove()
 ```
 </CodeGroup>
 
-## Example: `docker` image (containers inside the sandbox)
+## Example: `docker-lite` image (containers inside the sandbox)
 
-You choose **`docker`** for **Docker-in-Docker** workflows. You need more **RAM** and **disk** than a typical **`code`** sandbox. See [Nested containers](/advanced/nested-containers) for full examples.
+You choose **`docker-lite`** for most **Docker-in-Docker** workflows when you want the lighter Alpine-based image and a Docker daemon that is ready as the sandbox finishes booting. Use **`docker`** when you specifically want the heavier Debian-based variant (for example for K3s or Debian-oriented tooling). See [Nested containers](/advanced/nested-containers) for full examples.
 
 ```typescript
 const sandbox = await vr.createSandbox({
   name: 'dind-job',
-  image: 'docker',
+  image: 'docker-lite',
   cpu: 4,
-  mem: 8192,
+  mem: 4096,
 });
 ```
 
@@ -213,7 +214,7 @@ curl -sS "https://platform.void-run.com/api/images" \
 ## Image caching and performance
 
 <Note>
-The first creation with a large image (especially **`docker`**) can take longer while the host caches layers. Later sandboxes on the same host typically start faster.
+The first creation with a large image (especially **`docker`**, and to a lesser extent **`docker-lite`**) can take longer while the host caches layers. Later sandboxes on the same host typically start faster.
 </Note>
 
 | Operation | First use (typical) | Cached |
@@ -228,7 +229,8 @@ The first creation with a large image (especially **`docker`**) can take longer 
   <Card title="✅ Do" icon="check">
     - Default to **`code`** for interpreters, Node, and Python in one box  
     - Use **`max`** when you need Debian-style compatibility  
-    - Use **`docker`** only when you run Docker inside the VM; size **CPU/mem** up  
+    - Use **`docker-lite`** for most Docker-in-VM workflows; it stays closer to the Alpine **`code`** image  
+    - Use **`docker`** when you want the heavier Debian-based Docker/K3s environment; size **CPU/mem** up  
   </Card>
   <Card title="❌ Don't" icon="x">
     - Invent image names that are not in **`GET /images`** or this system list  
@@ -242,8 +244,9 @@ The first creation with a large image (especially **`docker`**) can take longer 
 | Use case | Image | Why |
 |----------|-------|-----|
 | AI agents, `runCode`, npm + Python | **`code`** | Fast TTI; multi-language |
+| Build/run images, DinD | **`docker-lite`** | Alpine-based Docker image with daemon ready during boot |
 | General Linux, apt-style workflows | **`max`** | Debian base |
-| Build/run images, DinD | **`docker`** | Docker daemon in the VM |
+| K3s or heavier Debian-oriented container stacks | **`docker`** | Docker daemon in the VM with the larger Debian image |
 | CI for mixed JS/Python | **`code`** | One image for both stacks |
 
 ### Environment variables at create

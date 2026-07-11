@@ -1,0 +1,256 @@
+---
+title: Public URLs
+description: Publish sandbox ports and reach them from the internet. Snapshotted sandboxes auto-wake on first request.
+---
+
+# Public URLs
+
+Every sandbox port you publish gets a stable public HTTPS URL served by the VoidRun gateway. Requests are routed to the sandbox on that port, and the gateway transparently wakes a `snapshotted` sandbox on the first request. That means you can expose a dev server, agent UI, or webhook target without running a tunnel or SSHing into the VM.
+
+<CardGroup cols={3}>
+  <Card title="Stable HTTPS" icon="globe">
+    One URL per published port. TLS terminated at the gateway; no certificates to manage inside the sandbox.
+  </Card>
+  <Card title="Cold-wake on demand" icon="bolt">
+    A request to a public URL while the sandbox is `snapshotted` wakes it and then proxies the request.
+  </Card>
+  <Card title="WebSocket friendly" icon="arrows-rotate">
+    The gateway forwards WebSocket upgrades to the sandbox, so streaming UIs and PTY-over-web frontends work out of the box.
+  </Card>
+</CardGroup>
+
+## Publish ports on create
+
+Pass `publishPorts` when you create the sandbox. Each entry is a TCP port that will receive its own public URL.
+
+<CodeGroup>
+```typescript TypeScript
+import { VoidRun } from '@voidrun/sdk';
+
+const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
+
+const sandbox = await vr.createSandbox({
+  name: 'web-preview',
+  cpu: 2,
+  mem: 2048,
+  publishPorts: [8080, 3000],
+});
+
+// Start a server inside the sandbox on one of the published ports
+await sandbox.exec({ command: 'python3 -m http.server 8080 &' });
+```
+
+```python Python
+from voidrun import VoidRun
+import os
+
+vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
+
+sandbox = vr.create_sandbox(
+    name="web-preview",
+    cpu=2,
+    mem=2048,
+    publish_ports=[8080, 3000],
+)
+
+sandbox.exec("python3 -m http.server 8080 &")
+```
+
+```bash CLI
+# --publish-port is repeatable; pass it once per port
+voidrun create \
+  --name web-preview \
+  --cpu 2 \
+  --mem 2048 \
+  --publish-port 8080 \
+  --publish-port 3000
+
+# Start a server on one of the published ports
+voidrun exec <sandbox-id> --command "python3 -m http.server 8080 &"
+```
+
+```bash cURL
+curl -X POST "https://platform.void-run.com/api/sandboxes" \
+  -H "X-API-Key: $VR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "web-preview",
+    "cpu": 2,
+    "mem": 2048,
+    "publishPorts": [8080, 3000]
+  }'
+```
+</CodeGroup>
+
+### Limits and rules
+
+- Up to **4 published ports** per sandbox.
+- Each port must be **1–65535**, and each port must be unique per sandbox.
+- Ports are exposed as they are: whatever listens inside the sandbox on `0.0.0.0:<port>` (or on the sandbox's primary interface) is what the gateway forwards to.
+
+## Fetch the public URLs
+
+Publishing a port doesn't tell you the URL directly: you fetch it from the API (or via the SDK). URLs are stable per `(sandbox, port)` for the sandbox's lifetime.
+
+<CodeGroup>
+```typescript TypeScript
+const urls = await sandbox.getPublicUrls();
+// [{ port: 8080, url: 'https://sabcdef12-8080.sb.void-run.com' },
+//  { port: 3000, url: 'https://sabcdef12-3000.sb.void-run.com' }]
+
+const preview = await sandbox.getPublicUrl(8080);
+if (preview) {
+  console.log('open', preview.url);
+}
+```
+
+```python Python
+urls = sandbox.get_public_urls()
+# [SandboxPublicURL(port=8080, url="https://sabcdef12-8080.sb.void-run.com"), ...]
+
+preview = sandbox.get_public_url(8080)
+if preview is not None:
+    print("open", preview.url)
+```
+
+```bash CLI
+# Print a table: PORT / URL. Alias: `voidrun urls <sandbox-id>`.
+voidrun public-urls <sandbox-id>
+
+# Lossless JSON (same shape as the REST endpoint's data array)
+voidrun public-urls <sandbox-id> --json
+```
+
+```bash cURL
+curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/public-urls" \
+  -H "X-API-Key: $VR_API_KEY"
+```
+</CodeGroup>
+
+### Response shape
+
+```json
+{
+  "status": "success",
+  "message": "Public URLs fetched",
+  "data": [
+    { "port": 8080, "url": "https://sabcdef12-8080.sb.void-run.com" },
+    { "port": 3000, "url": "https://sabcdef12-3000.sb.void-run.com" }
+  ]
+}
+```
+
+The URL hostname follows a `s<sandbox-id-prefix>-<port>.<base-domain>` pattern, but treat it as opaque and use the API/SDK to get the current value: the base domain differs between hosted VoidRun and self-hosted deployments.
+
+{/*
+## Change published ports after create
+
+Use `PATCH /sandboxes/{id}/publish-ports` to replace the list. The gateway reconciles new ports (adding routes) and removes any port no longer in the list.
+
+<CodeGroup>
+```bash cURL
+curl -X PATCH "https://platform.void-run.com/api/sandboxes/<sandbox-id>/publish-ports" \
+  -H "X-API-Key: $VR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"publishPorts": [8080]}'
+```
+</CodeGroup>
+
+<Note>
+Passing an empty array removes all public URLs for the sandbox.
+</Note>
+*/}
+
+## Cold-wake behaviour
+
+A request to a public URL for a `snapshotted` sandbox is not rejected: the gateway holds the request briefly, wakes the sandbox from its snapshot, waits for the port to accept TCP, and then proxies the request. This is transparent to your client, but the **first** request after a long idle costs one wake:
+
+- **Warm request** (sandbox already `running`): normal proxy latency.
+- **Cold request** (sandbox `snapshotted`): additional wake budget until the port is reachable. If the gateway can't wake the sandbox inside its budget, you get a `504 Gateway Timeout` with a `Retry-After` header.
+
+**Design tips**
+
+- Retry idempotent HTTP calls **once** on `504` — the second call is almost always warm.
+- Long-poll and WebSocket clients should reconnect on network drops as usual; the gateway handles the wake on the reconnect.
+- If you need instant response for the first request, call `POST /sandboxes/{id}/wake` before the traffic hits, or issue a cheap warmup request from your control plane.
+
+## Common patterns
+
+### Expose a dev server
+
+<CodeGroup>
+```typescript TypeScript
+const sandbox = await vr.createSandbox({
+  name: 'next-preview',
+  cpu: 2,
+  mem: 4096,
+  publishPorts: [3000],
+});
+
+await sandbox.exec({ command: 'git clone https://example.com/app /app' });
+await sandbox.commands.run('npm run dev', undefined, '/app', 0);
+
+const preview = await sandbox.getPublicUrl(3000);
+console.log('Preview URL:', preview?.url);
+```
+
+```python Python
+sandbox = vr.create_sandbox(
+    name="next-preview",
+    cpu=2,
+    mem=4096,
+    publish_ports=[3000],
+)
+
+sandbox.exec("git clone https://example.com/app /app")
+sandbox.commands.run("npm run dev", None, "/app", 0)
+
+preview = sandbox.get_public_url(3000)
+print("Preview URL:", preview.url if preview else None)
+```
+
+```bash CLI
+voidrun create \
+  --name next-preview \
+  --cpu 2 \
+  --mem 4096 \
+  --publish-port 3000
+
+voidrun exec <sandbox-id> --command "git clone https://example.com/app /app"
+voidrun bg run <sandbox-id> --command "npm run dev" --cwd /app
+
+# Print PORT / URL for every published port
+voidrun public-urls <sandbox-id>
+```
+</CodeGroup>
+
+### Webhook receiver
+
+Publish a small HTTP listener as the webhook target. A `snapshotted` receiver still receives the delivery: the gateway wakes it on the first webhook and hands it the request. Configure your webhook sender's retry policy to be tolerant of a cold-start on the very first delivery after a long idle.
+
+### PTY / streaming UIs
+
+The gateway proxies WebSocket upgrades transparently. Publish the port your streaming server listens on and connect over `wss://` using the URL from `getPublicUrl(port)`.
+
+## Security
+
+- **Public means public**: anything on a published port is reachable from the internet. Terminate auth (API keys, OAuth, signed URLs) inside the sandbox on that port.
+- **Outbound access** to the sandbox is a separate control — see [Internet Access Control](/networking/internet-access).
+- Public URLs are removed when you delete the sandbox or unpublish the port. In-flight requests are drained; new requests get `404`.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Sandbox lifecycle" icon="power-off" href="/core-concepts/lifecycle">
+    Sleep, wake, and auto-lifecycle — the state machine behind cold-wake.
+  </Card>
+  <Card title="Internet access" icon="shield-halved" href="/networking/internet-access">
+    Restrict what a sandbox can reach going outbound.
+  </Card>
+  <Card title="TypeScript SDK" icon="code" href="/sdks/typescript">
+    `getPublicUrls` / `getPublicUrl` on the sandbox instance.
+  </Card>
+  <Card title="Python SDK" icon="python" href="/sdks/python">
+    `get_public_urls` / `get_public_url` on the sandbox instance.
+  </Card>
+</CardGroup>

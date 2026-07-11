@@ -1,15 +1,15 @@
 ---
 title: Sandbox Lifecycle
-description: Understand VoidRun's unique infinite running capability, auto-sleep mechanism, and lightning-fast resume times.
+description: How VoidRun sandboxes sleep, wake, and get cleaned up — plus the manual controls to drive them yourself.
 ---
 
 # Sandbox Lifecycle
 
-VoidRun sandboxes are designed for long-running workloads with intelligent resource management. Unlike traditional serverless functions that timeout, VoidRun sandboxes can run indefinitely while optimizing costs through smart hibernation.
+VoidRun sandboxes are designed for long-running workloads with intelligent resource management. A running sandbox has no maximum execution time, and idle sandboxes are snapshotted to disk so you only pay for active compute. A snapshotted sandbox wakes in a fraction of a second on the next request.
 
-## Infinite Running
+## Infinite running
 
-VoidRun sandboxes are designed to run forever. There's no maximum execution time limit, making them ideal for:
+VoidRun sandboxes are designed to run for as long as you need. There is no maximum execution time, making them a good fit for:
 
 - Long-running AI agent workflows
 - Persistent development environments
@@ -17,81 +17,94 @@ VoidRun sandboxes are designed to run forever. There's no maximum execution time
 - Background processing tasks
 
 <CardGroup cols={3}>
-  <Card title="♾️ No Timeouts" icon="infinity">
-    Sandboxes don't have a maximum execution time. Run tasks for minutes, hours, or days.
+  <Card title="No hard timeouts" icon="infinity">
+    Run tasks for minutes, hours, or days. Idle sandboxes are snapshotted, not killed.
   </Card>
-  <Card title="💰 Cost Efficient" icon="sack-dollar">
-    Auto-sleep ensures you only pay for active compute time, not idle time.
+  <Card title="Cost efficient" icon="sack-dollar">
+    Auto-sleep releases compute while a snapshot preserves the sandbox on disk.
   </Card>
-  <Card title="⚡ Instant Resume" icon="bolt">
-    Resume sleeping sandboxes in under 200ms, maintaining the illusion of always-on availability.
+  <Card title="Fast wake" icon="bolt">
+    Wake a snapshotted sandbox in well under a second: the same sandbox, same files, same processes.
   </Card>
 </CardGroup>
 
-## Auto-Sleep & Resume
+## Lifecycle states
 
-VoidRun automatically optimizes resource usage by putting idle sandboxes to sleep.
+The `status` field on a sandbox is one of:
 
-### How Auto-Sleep Works
+| State | What it means | Billing | Next transitions |
+|-------|---------------|---------|------------------|
+| **`running`** | VM is up, guest agent is reachable | Full compute rate | `sleep` → `snapshotted`, crash → `error`, delete → `deleted` |
+| **`snapshotted`** | VM process exited, memory + disk snapshot on host | Storage only | `wake` / `start` / public URL request → `running`, delete → `deleted`, auto-delete after retention |
+| **`error`** | VM entered a bad state or crashed | Storage only | `start` → `running`, delete → `deleted` |
+| **`killed`** | VM was terminated by the platform (rare) | Storage only | `start` → `running`, delete → `deleted` |
+| **`deleted`** | Terminal. Disks and metadata scheduled for cleanup | Not billed | — |
+
+```mermaid
+stateDiagram-v2
+    state "running" as running
+    state "snapshotted" as snapshotted
+    state "error / killed" as recovery
+    state "deleted" as deleted
+
+    [*] --> running: POST /sandboxes
+    running --> snapshotted: POST /sleep or idle timeout
+    snapshotted --> running: POST /wake or first public URL request
+    running --> recovery: crash or platform kill
+    recovery --> running: POST /start
+    running --> deleted: DELETE
+    snapshotted --> deleted: DELETE or auto-delete
+    recovery --> deleted: DELETE
+    deleted --> [*]
+```
+
+## Auto-sleep and auto-delete
+
+When you pass `autoSleep: true` on create, the platform manages the lifecycle for you:
 
 <Steps>
-  <Step title="Activity Monitoring">
-    VoidRun monitors sandbox activity (command execution, file operations, network requests).
+  <Step title="Activity monitoring">
+    The platform tracks activity per sandbox (command execution, filesystem operations, network requests, active PTY / exec streams).
   </Step>
-  <Step title="Idle Detection">
-    After **5 minutes** of inactivity, the sandbox enters sleep mode.
+  <Step title="Auto-sleep (default: 1 minute idle)">
+    After the configured idle window, the sandbox is snapshotted: memory + disk are persisted and the VM process exits. Status becomes `snapshotted`.
   </Step>
-  <Step title="State Preservation">
-    The sandbox state is preserved: files, environment variables, and running processes are saved.
+  <Step title="Auto-wake on demand">
+    The next API call (or public URL request) transparently wakes the sandbox back into `running`. You do not need to poll or issue a wake call yourself.
   </Step>
-  <Step title="Resource Release">
-    Compute resources are released, reducing costs while the sandbox remains available.
+  <Step title="Auto-delete (default: 7 days snapshotted)">
+    A sandbox that stays `snapshotted` past the retention window is deleted, and its snapshot is removed. Download anything you need before you leave a sandbox idle for that long.
   </Step>
 </Steps>
 
+### Defaults
+
+| Threshold | Default | Env variable (self-hosted) |
+|-----------|---------|----------------------------|
+| Auto-snapshot after idle | **60 seconds** | `AUTO_LIFECYCLE_SNAPSHOT_AFTER_IDLE_SEC` |
+| Auto-delete after snapshotted | **7 days** (604800 s) | `AUTO_LIFECYCLE_DELETE_AFTER_SNAPSHOTTED_SEC` |
+| Check interval | **30 seconds** | `AUTO_LIFECYCLE_CHECK_INTERVAL_SEC` |
+
 <Note>
-The 5-minute idle timeout is configurable at the organization level. Contact support to adjust this setting for your use case.
+These are hosted-VoidRun defaults. On self-hosted deployments, tune the environment variables above and disable the whole loop with `AUTO_LIFECYCLE_ENABLED=false` if you want per-sandbox opt-in only.
 </Note>
 
-### Lightning-Fast Resume
+### Wake is transparent
 
-When you interact with a sleeping sandbox, it resumes automatically in **under 200ms**:
+You don't have to call `wake` yourself to use a snapshotted sandbox. Every path that talks to the guest does the right thing:
 
-- **Transparent**: Resume happens automatically: no manual wake-up needed
-- **Fast**: Sub-200ms resume time feels instantaneous
-- **Stateful**: All files, environment variables, and configurations are preserved
+- **REST API and SDKs**: an `exec`, filesystem, or command call against a `snapshotted` sandbox triggers a wake and then executes.
+- **Public URLs**: a request to a published port while `snapshotted` wakes the sandbox through the gateway and then proxies the request. See [Public URLs](/networking/public-urls).
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant API as VoidRun API
-    participant Sandbox as Sandbox (Sleeping)
-    
-    User->>API: Execute command
-    API->>Sandbox: Wake signal
-    Note over Sandbox: < 200ms resume
-    Sandbox-->>API: Ready
-    API->>Sandbox: Execute command
-    Sandbox-->>API: Response
-    API-->>User: Result
-```
+The first request after a long idle pays the wake cost once (memory + disk restore + readiness probe). Subsequent requests are hot.
 
-### Resume Time Comparison
+## Manual lifecycle controls
 
-| Platform | Cold Start | Resume Time |
-|----------|------------|-------------|
-| **VoidRun** | ~2s (new sandbox) | **< 200ms** |
-| AWS Lambda | ~1-5s | N/A |
-| Traditional VMs | ~30-60s | ~10-30s |
-| Containers | ~5-15s | ~2-5s |
+You can drive the lifecycle explicitly.
 
-## Manual Lifecycle Controls
+### Sleep a sandbox
 
-Take full control over sandbox state with manual lifecycle operations.
-
-### Pause a Sandbox
-
-Manually pause a running sandbox to release resources while preserving state:
+Snapshot a running sandbox now, instead of waiting for the idle timer.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -100,9 +113,8 @@ import { VoidRun } from '@voidrun/sdk';
 const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
-// Pause the sandbox
-await sandbox.pause();
-console.log('Sandbox paused');
+await sandbox.sleep();
+console.log('Sandbox snapshotted');
 ```
 
 ```python Python
@@ -111,25 +123,19 @@ import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
 sandbox = vr.get_sandbox("sandbox-id")
-# Pause the sandbox
-sandbox.pause()
-print("Sandbox paused")
-```
-
-```bash CLI
-# Pause a running sandbox
-voidrun pause <sandbox-id>
+sandbox.sleep()
+print("Sandbox snapshotted")
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/pause" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/sleep" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
 
-### Resume a Sandbox
+### Wake a sandbox
 
-Resume a paused or sleeping sandbox:
+Explicitly restore a `snapshotted` sandbox back to `running`. In most cases you don't need this: any API call against a snapshotted sandbox auto-wakes it.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -138,9 +144,8 @@ import { VoidRun } from '@voidrun/sdk';
 const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
-// Resume the sandbox (< 200ms)
-await sandbox.resume();
-console.log('Sandbox resumed and ready');
+await sandbox.wake();
+console.log('Sandbox running');
 ```
 
 ```python Python
@@ -149,25 +154,19 @@ import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
 sandbox = vr.get_sandbox("sandbox-id")
-# Resume the sandbox (< 200ms)
-sandbox.resume()
-print("Sandbox resumed and ready")
-```
-
-```bash CLI
-# Resume a paused/sleeping sandbox
-voidrun resume <sandbox-id>
+sandbox.wake()
+print("Sandbox running")
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/resume" \
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/wake" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
 
-### Stop a Sandbox
+### Start a recovered sandbox
 
-Stop a running sandbox completely (stronger than pause):
+`start` is for recovery: it accepts sandboxes in `snapshotted`, `killed`, or `error` and boots them from the latest snapshot. Use `wake` for the normal sleep/wake loop and reach for `start` when the platform reports the sandbox in a non-running, non-snapshotted state.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -176,47 +175,7 @@ import { VoidRun } from '@voidrun/sdk';
 const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
-// Stop the sandbox
-await sandbox.stop();
-console.log('Sandbox stopped');
-```
-
-```python Python
-from voidrun import VoidRun
-import os
-
-vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
-sandbox = vr.get_sandbox("sandbox-id")
-# Stop the sandbox
-sandbox.stop()
-print("Sandbox stopped")
-```
-
-```bash CLI
-# Stop a running sandbox
-voidrun stop <sandbox-id>
-```
-
-```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/stop" \
-  -H "X-API-Key: $VR_API_KEY"
-```
-</CodeGroup>
-
-### Start a Sandbox
-
-Start a stopped sandbox:
-
-<CodeGroup>
-```typescript TypeScript
-import { VoidRun } from '@voidrun/sdk';
-
-const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
-const sandbox = await vr.getSandbox('sandbox-id');
-
-// Start the sandbox
 await sandbox.start();
-console.log('Sandbox started');
 ```
 
 ```python Python
@@ -225,14 +184,7 @@ import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
 sandbox = vr.get_sandbox("sandbox-id")
-# Start the sandbox
 sandbox.start()
-print("Sandbox started")
-```
-
-```bash CLI
-# Start a stopped sandbox
-voidrun start <sandbox-id>
 ```
 
 ```bash cURL
@@ -241,12 +193,16 @@ curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/start" \
 ```
 </CodeGroup>
 
-### Terminate a Sandbox
+<Note>
+`start` fails with 500 if no snapshot is available. That usually means the sandbox never reached `running` after create, or the snapshot was cleaned up: create a fresh sandbox in that case.
+</Note>
 
-Permanently delete a sandbox and all its data:
+### Delete a sandbox
+
+Permanently remove a sandbox, its snapshot, and all its data.
 
 <Warning>
-Termination is permanent. All files, environment variables, and state will be lost. Make sure to download any important data before terminating.
+Deletion is permanent. Files, environment variables, and any snapshot are destroyed. Download important data first.
 </Warning>
 
 <CodeGroup>
@@ -256,9 +212,7 @@ import { VoidRun } from '@voidrun/sdk';
 const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
-// Permanently delete the sandbox
 await sandbox.remove();
-console.log('Sandbox terminated');
 ```
 
 ```python Python
@@ -267,14 +221,7 @@ import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
 sandbox = vr.get_sandbox("sandbox-id")
-# Permanently delete the sandbox
 sandbox.remove()
-print("Sandbox terminated")
-```
-
-```bash CLI
-# Permanently delete a sandbox
-voidrun delete <sandbox-id>
 ```
 
 ```bash cURL
@@ -283,32 +230,27 @@ curl -X DELETE "https://platform.void-run.com/api/sandboxes/<sandbox-id>" \
 ```
 </CodeGroup>
 
-## Lifecycle States
+## Public URL cold wake
 
-| State | Description | Billing | Resume Time |
-|-------|-------------|---------|-------------|
-| **Running** | Sandbox is active and processing | Billed at full rate | N/A |
-| **Paused** | Manually paused, state preserved | Billed at reduced rate | < 200ms |
-| **Sleeping** | Auto-slept due to inactivity | Not billed | < 200ms |
-| **Stopped** | Manually stopped | Not billed | ~2s (cold start) |
+Sandboxes that expose ports via `publishPorts` remain reachable while `snapshotted`. A request to a published URL is served after the gateway wakes the sandbox: the first request after idle is slower, and subsequent requests are hot. Design HTTP clients to retry once on a gateway timeout during that first request.
 
-## Best Practices
+See [Public URLs](/networking/public-urls) for how to publish ports and fetch the URLs.
 
-### Cost Optimization
+## Best practices
 
-<Note>
-Let sandboxes auto-sleep when not in use. The sub-200ms resume time means there's virtually no latency penalty, while you save on compute costs.
-</Note>
+### Let sandboxes sleep
 
-### Long-Running Workflows
+Sandboxes with `autoSleep: true` cost storage only while snapshotted. Wake latency is well under a second, so the user-visible penalty is minimal for interactive workflows.
 
-For workflows that need to maintain state over long periods:
+### Design long-running workflows for wake
 
-1. **Use persistent storage**: Critical data should be persisted to files or external storage
-2. **Handle resume gracefully**: Design your code to handle potential pauses
-3. **Use health checks**: Implement periodic health checks for critical long-running processes
+For workflows that live for hours or days:
 
-### Example: Long-Running AI Agent
+1. **Persist state to disk** — files inside the sandbox survive sleep/wake. State kept only in a process's memory does not: on wake, that process no longer exists.
+2. **Detect status** — before assuming the sandbox is hot, read the current status (`GET /sandboxes/{id}`); the SDKs expose `sandbox.status`.
+3. **Retry idempotent calls** — the first request after a long idle can hit the wake budget; retry once with a small backoff on gateway timeouts.
+
+### Long-running AI agent example
 
 <CodeGroup>
 ```typescript TypeScript
@@ -317,29 +259,24 @@ import { VoidRun } from '@voidrun/sdk';
 const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 
 async function runAIAgent() {
-  // Create sandbox - will run indefinitely
   const sandbox = await vr.createSandbox({
     name: 'ai-agent-session',
     cpu: 4,
-    mem: 4096
+    mem: 4096,
+    autoSleep: true,
   });
 
   try {
-    // Install dependencies
     await sandbox.exec({ command: 'pip install openai langchain' });
-
-    // Upload agent code
     await sandbox.fs.uploadFile('/app/agent.py', agentCode);
 
-    // Run the agent (can run for hours/days)
     const result = await sandbox.exec({
       command: 'python3 /app/agent.py',
-      timeout: 86400 // 24 hours
+      timeout: 86400,
     });
 
     console.log(result.data?.stdout);
   } finally {
-    // Clean up when truly done
     await sandbox.remove();
   }
 }
@@ -352,66 +289,48 @@ import os
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
 
 def run_ai_agent():
-    # Create sandbox - will run indefinitely
     sandbox = vr.create_sandbox(
         name="ai-agent-session",
         cpu=4,
-        mem=4096
+        mem=4096,
+        auto_sleep=True,
     )
     try:
-        # Install dependencies
         sandbox.exec("pip install openai langchain")
-
-        # Upload agent code
         sandbox.fs.upload_file("/app/agent.py", agent_code)
-
-        # Run the agent (can run for hours/days)
         result = sandbox.exec(
             "python3 /app/agent.py",
-            timeout=86400  # 24 hours
+            timeout=86400,
         )
-
         print(result.data.stdout)
     finally:
-        # Clean up when truly done
         sandbox.remove()
 ```
 
-```bash CLI
-# Create sandbox for long-running agent
-voidrun create --name ai-agent-session --cpu 4 --mem 4096
-
-# Install dependencies
-voidrun exec <sandbox-id> --command "pip install openai langchain"
-
-# Upload agent code
-voidrun fs upload <sandbox-id> --source ./agent.py --dest /app/agent.py
-
-# Run the agent
-voidrun exec <sandbox-id> --command "python3 /app/agent.py" --timeout 86400
-
-# Clean up when done
-voidrun delete <sandbox-id>
-```
-
 ```bash cURL
-# Create sandbox
+# Create with autoSleep so the platform snapshots on idle
 curl -X POST "https://platform.void-run.com/api/sandboxes" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"name":"ai-agent-session","cpu":4,"mem":4096}'
+  -d '{"name":"ai-agent-session","cpu":4,"mem":4096,"autoSleep":true}'
 
-# The sandbox will auto-sleep after 5 min idle and resume on next request
+# Later requests auto-wake the sandbox if it snapshotted while idle
 ```
 </CodeGroup>
 
-## Next Steps
+## Next steps
 
 <CardGroup cols={2}>
+  <Card title="Public URLs" icon="globe" href="/networking/public-urls">
+    Publish sandbox ports and reach them from the internet.
+  </Card>
   <Card title="Code Execution" icon="terminal" href="/core-concepts/code-execution">
-    Learn how to execute commands and code inside sandboxes.
+    Run commands and code inside a sandbox.
   </Card>
   <Card title="File System" icon="folder" href="/core-concepts/file-system">
-    Understand file storage and operations in sandboxes.
+    Files persist across sleep/wake and only vanish on delete.
+  </Card>
+  <Card title="SDKs & API" icon="code" href="/sdks/overview">
+    TypeScript and Python method surface for the lifecycle.
   </Card>
 </CardGroup>

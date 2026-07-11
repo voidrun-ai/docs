@@ -599,7 +599,7 @@ curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
 ## Lifecycle Considerations
 
 <Warning>
-**SSH and VNC connections will be dropped if the sandbox enters auto-sleep mode.** Sandboxes automatically sleep after 5 minutes of inactivity. To maintain connections during active sessions, keep the sandbox alive.
+**SSH and VNC connections drop when the sandbox is snapshotted.** Idle sandboxes are auto-slept: their VM process exits and existing TCP sessions are torn down. Keep the sandbox alive with periodic activity if you rely on long-lived interactive sessions.
 </Warning>
 
 ### Keeping Sandbox Alive
@@ -611,13 +611,14 @@ import { VoidRun } from '@voidrun/sdk';
 const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 const sandbox = await vr.getSandbox('sandbox-id');
 
-// Option 1: Resume sandbox if sleeping
-await sandbox.resume();
+// Option 1: Wake sandbox if it snapshotted
+await sandbox.wake();
 
 // Option 2: Keep-alive with periodic activity
+// Tune the interval to sit well inside your deployment's idle threshold.
 setInterval(async () => {
   await sandbox.exec({ command: 'echo "keepalive" > /dev/null' });
-}, 4 * 60 * 1000); // Every 4 minutes (before 5-min timeout)
+}, 30 * 1000);
 
 // Option 3: Run a long-running process (Commands API returns a PID)
 await sandbox.commands.run('while true; do sleep 60; done', undefined, undefined, 0);
@@ -631,14 +632,14 @@ import time
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
 sandbox = vr.get_sandbox("sandbox-id")
-# Option 1: Resume sandbox if sleeping
-sandbox.resume()
+# Option 1: Wake sandbox if it snapshotted
+sandbox.wake()
 
 # Option 2: Keep-alive with periodic activity
 def keepalive():
     while True:
         sandbox.exec("echo 'keepalive' > /dev/null")
-        time.sleep(4 * 60)  # Every 4 minutes
+        time.sleep(30)
 
 keepalive_thread = threading.Thread(target=keepalive, daemon=True)
 keepalive_thread.start()
@@ -648,13 +649,13 @@ sandbox.exec("while true; do sleep 60; done &")
 ```
 
 ```bash CLI
-# Resume sandbox if sleeping
-voidrun resume <sandbox-id>
+# Wake sandbox if snapshotted
+voidrun wake <sandbox-id>
 
 # Keep-alive script (run in background)
 while true; do
   voidrun exec <sandbox-id> --command "echo keepalive"
-  sleep 240
+  sleep 30
 done &
 
 # Start long-running process
@@ -662,8 +663,8 @@ voidrun exec <sandbox-id> --command "while true; do sleep 60; done &"
 ```
 
 ```bash cURL
-# Resume sandbox
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/resume" \
+# Wake sandbox
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/wake" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
@@ -679,10 +680,10 @@ const vr = new VoidRun({ apiKey: process.env.VR_API_KEY });
 // Check sandbox status
 const sandbox = await vr.getSandbox('sandbox-id');
 
-if (sandbox.status === 'sleeping') {
-  console.log('Sandbox is sleeping, resuming...');
-  await sandbox.resume();
-  console.log('Sandbox resumed, ready for SSH/VNC');
+if (sandbox.status === 'snapshotted') {
+  console.log('Sandbox is snapshotted, waking...');
+  await sandbox.wake();
+  console.log('Sandbox running, ready for SSH/VNC');
 }
 
 console.log('Current status:', sandbox.status);
@@ -694,10 +695,10 @@ import os
 
 vr = VoidRun(api_key=os.environ.get("VR_API_KEY"))
 sandbox = vr.get_sandbox("sandbox-id")
-if sandbox.status == "sleeping":
-    print("Sandbox is sleeping, resuming...")
-    sandbox.resume()
-    print("Sandbox resumed, ready for SSH/VNC")
+if sandbox.status == "snapshotted":
+    print("Sandbox is snapshotted, waking...")
+    sandbox.wake()
+    print("Sandbox running, ready for SSH/VNC")
 
 print(f"Current status: {sandbox.status}")
 ```
@@ -706,8 +707,8 @@ print(f"Current status: {sandbox.status}")
 # Check sandbox status
 voidrun get <sandbox-id>
 
-# Resume if sleeping
-voidrun resume <sandbox-id>
+# Wake if snapshotted
+voidrun wake <sandbox-id>
 ```
 
 ```bash cURL
@@ -715,8 +716,8 @@ voidrun resume <sandbox-id>
 curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>" \
   -H "X-API-Key: $VR_API_KEY"
 
-# Resume if sleeping
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/resume" \
+# Wake if snapshotted
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/wake" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>

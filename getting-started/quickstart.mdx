@@ -72,7 +72,7 @@ You can also pass the API key directly when initializing the SDK client. See the
 
 ## Step 3: Create Your First Sandbox
 
-Create an isolated MicroVM environment. The examples use the **`code`** system image (Alpine-based, with Python and Node: see [System images](/environments/custom-images#system-images)). You can use **`max`** (Debian) or **`docker`** (Docker-in-Docker) instead when your workload requires them.
+Create an isolated MicroVM environment. The examples use the **`code`** system image (Alpine-based, with Python and Node: see [System images](/environments/custom-images#system-images)). You can use **`max`** (Debian), **`docker-lite`** (lighter Alpine Docker), or **`docker`** (heavier Debian Docker) instead when your workload requires them.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -379,17 +379,11 @@ console.log(`Total sandboxes: ${meta.total}`);
 // Get a specific sandbox
 const existing = await vr.getSandbox('sandbox-id');
 
-// Pause a running sandbox (saves resources)
-await sandbox.pause();
+// Sleep a running sandbox (snapshot to disk, release compute)
+await sandbox.sleep();
 
-// Resume a paused sandbox (< 200ms)
-await sandbox.resume();
-
-// Stop a sandbox
-await sandbox.stop();
-
-// Start a stopped sandbox
-await sandbox.start();
+// Wake a snapshotted sandbox back to running
+await sandbox.wake();
 
 // Delete a sandbox when done
 await sandbox.remove();
@@ -402,17 +396,11 @@ print(f"Total sandboxes: {len(listed.sandboxes)}")
 
 # Get a specific sandbox
 sandbox = vr.get_sandbox("sandbox-id")
-# Pause a running sandbox (saves resources)
-sandbox.pause()
+# Sleep a running sandbox (snapshot to disk, release compute)
+sandbox.sleep()
 
-# Resume a paused sandbox (< 200ms)
-sandbox.resume()
-
-# Stop a sandbox
-sandbox.stop()
-
-# Start a stopped sandbox
-sandbox.start()
+# Wake a snapshotted sandbox back to running
+sandbox.wake()
 
 # Delete a sandbox when done
 sandbox.remove()
@@ -425,17 +413,11 @@ voidrun list
 # Get sandbox details
 voidrun get <sandbox-id>
 
-# Pause a sandbox
-voidrun pause <sandbox-id>
+# Sleep a sandbox
+voidrun sleep <sandbox-id>
 
-# Resume a sandbox
-voidrun resume <sandbox-id>
-
-# Stop a sandbox
-voidrun stop <sandbox-id>
-
-# Start a sandbox
-voidrun start <sandbox-id>
+# Wake a sandbox
+voidrun wake <sandbox-id>
 
 # Delete a sandbox
 voidrun delete <sandbox-id>
@@ -450,12 +432,12 @@ curl -X GET "https://platform.void-run.com/api/sandboxes" \
 curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>" \
   -H "X-API-Key: $VR_API_KEY"
 
-# Pause a sandbox
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/pause" \
+# Sleep a sandbox
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/sleep" \
   -H "X-API-Key: $VR_API_KEY"
 
-# Resume a sandbox
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/resume" \
+# Wake a sandbox
+curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/wake" \
   -H "X-API-Key: $VR_API_KEY"
 
 # Delete a sandbox
@@ -616,7 +598,7 @@ echo "Sandbox deleted"
 ## What's Next?
 
 <Warning>
-Always clean up sandboxes when you're done to avoid unnecessary resource usage. Sandboxes auto-sleep after 5 minutes of idle time but remain available until explicitly deleted.
+Always clean up sandboxes when you're done. Idle sandboxes auto-sleep (snapshot on disk) and wake on the next request, but they remain billable for storage until explicitly deleted.
 </Warning>
 
 Now that you've completed the quickstart, explore these topics:
@@ -626,7 +608,7 @@ Now that you've completed the quickstart, explore these topics:
     Full walkthroughs: interpreter, CI, ETL, background jobs, PTY, file watch, cleanup.
   </Card>
   <Card title="Core Concepts" icon="lightbulb" href="/core-concepts/lifecycle">
-    Learn about sandbox lifecycle, auto-sleep, and resume behavior.
+    Learn about sandbox lifecycle, auto-sleep, and wake behavior.
   </Card>
   <Card title="Code Execution" icon="terminal" href="/core-concepts/code-execution">
     Deep dive into command execution and code interpreter features.

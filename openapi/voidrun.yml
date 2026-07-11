@@ -237,16 +237,22 @@ components:
             LOG_LEVEL: "info"
         autoSleep:
           type: boolean
-          description: "If true, the sandbox will be auto-paused due to inactivity"
+          description: "If true, the sandbox is auto-snapshotted after idle and wakes on the next request"
           example: true
         region:
           type: string
           description: "Target region for the sandbox"
           example: eu
-        refId:
-          type: string
-          description: "External reference ID for tracking"
-          example: "ftr4dr"
+        publishPorts:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 65535
+          description: >-
+            Sandbox ports to expose through the public gateway. Each entry is
+            published as a separate public URL once the VM is running.
+          example: [8080, 3000]
 
     Sandbox:
       type: object
@@ -278,7 +284,7 @@ components:
           description: >-
             Lifecycle state. Terminal states `killed` and `deleted` may still appear
             in list responses for historical or cleanup rows.
-          enum: [running, stopped, paused, error, killed, deleted]
+          enum: [running, snapshotted, error, killed, deleted]
           example: running
         createdAt:
           type: string
@@ -307,10 +313,65 @@ components:
           type: string
           description: "Region where the sandbox is hosted"
           example: us-east-1
-        refId:
+        nodeId:
           type: string
-          description: "External reference ID"
-          example: "ref-123456"
+          description: "Voidrun host that created this sandbox"
+          example: "host-fra-01"
+        publishPorts:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 65535
+          description: >-
+            Ports exposed through the public gateway. Empty when the sandbox is
+            not publicly reachable.
+          example: [8080]
+
+    SandboxPublicURL:
+      type: object
+      properties:
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          description: Sandbox TCP port this URL routes to.
+          example: 8080
+        url:
+          type: string
+          format: uri
+          description: Public HTTPS URL for the port.
+          example: https://sabcdef12-8080.sb.void-run.com
+
+    ApiResponsePublicURLs:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        message:
+          type: string
+          example: Public URLs fetched
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SandboxPublicURL"
+
+    UpdatePublishPortsRequest:
+      type: object
+      required:
+        - publishPorts
+      properties:
+        publishPorts:
+          type: array
+          description: >-
+            Replacement list of ports to publish. An empty array removes every
+            public URL for the sandbox.
+          items:
+            type: integer
+            minimum: 1
+            maximum: 65535
+          example: [8080, 3000]
 
     # Generic API Response for list with pagination
     ApiResponseSandboxesList:
@@ -1222,12 +1283,88 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /sandboxes/{id}/sleep:
+    post:
+      tags:
+        - Sandboxes
+      summary: Sleep sandbox
+      description: Put a running sandbox to sleep (state is persisted, VM process exits).
+      operationId: sleepSandbox
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 65ae1234567890abcdef1234
+      responses:
+        "200":
+          description: Sandbox snapshotted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Sandbox not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sandboxes/{id}/wake:
+    post:
+      tags:
+        - Sandboxes
+      summary: Wake sandbox
+      description: Wake a sleeping sandbox from its persisted state.
+      operationId: wakeSandbox
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 65ae1234567890abcdef1234
+      responses:
+        "200":
+          description: Sandbox restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Sandbox not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /sandboxes/{id}/start:
     post:
       tags:
         - Sandboxes
       summary: Start sandbox
-      description: Start a stopped sandbox
+      description: |
+        Boot a stopped sandbox back into a running state. Accepts sandboxes in
+        `snapshotted`, `killed`, or `error` status and restores from the latest
+        on-disk snapshot. Returns 500 if no snapshot is available (the sandbox
+        must then be deleted and recreated).
       operationId: startSandbox
       security:
         - ApiKeyAuth: []
@@ -1245,120 +1382,103 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Sandbox not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Start failed (e.g. no snapshot available, or restore error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sandboxes/{id}/public-urls:
+    get:
+      tags:
+        - Sandboxes
+      summary: List public URLs
+      description: >-
+        Return every published port for the sandbox along with its stable
+        public HTTPS URL served by the gateway. Ports appear here as soon as
+        they are declared via `publishPorts`, even before the gateway has
+        finished materialising the route.
+      operationId: getSandboxPublicURLs
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 65ae1234567890abcdef1234
+      responses:
+        "200":
+          description: Public URLs fetched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponsePublicURLs"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Sandbox not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sandboxes/{id}/publish-ports:
+    patch:
+      tags:
+        - Sandboxes
+      summary: Update published ports
+      description: >-
+        Replace the sandbox's `publishPorts` list. Newly added ports get a
+        public URL as soon as the gateway reconciles them; removed ports stop
+        serving public traffic.
+      operationId: updateSandboxPublishPorts
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 65ae1234567890abcdef1234
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePublishPortsRequest"
+      responses:
+        "200":
+          description: Publish ports updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
         "400":
-          description: Invalid request (sandbox not stopped)
+          description: Invalid request (too many ports, out-of-range, or duplicates)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-        "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: Sandbox not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /sandboxes/{id}/stop:
-    post:
-      tags:
-        - Sandboxes
-      summary: Stop sandbox
-      description: Stop a running sandbox
-      operationId: stopSandbox
-      security:
-        - ApiKeyAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-          example: 65ae1234567890abcdef1234
-      responses:
-        "200":
-          description: Sandbox stopped
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-        "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: Sandbox not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /sandboxes/{id}/pause:
-    post:
-      tags:
-        - Sandboxes
-      summary: Pause sandbox
-      description: Pause a running sandbox
-      operationId: pauseSandbox
-      security:
-        - ApiKeyAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-          example: 65ae1234567890abcdef1234
-      responses:
-        "200":
-          description: Sandbox paused
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
-        "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: Sandbox not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /sandboxes/{id}/resume:
-    post:
-      tags:
-        - Sandboxes
-      summary: Resume sandbox
-      description: Resume a paused sandbox
-      operationId: resumeSandbox
-      security:
-        - ApiKeyAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-          example: 65ae1234567890abcdef1234
-      responses:
-        "200":
-          description: Sandbox resumed
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SuccessResponse"
         "401":
           description: Unauthorized
           content:
