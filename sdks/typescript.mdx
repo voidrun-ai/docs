@@ -59,6 +59,7 @@ const sandbox = await vr.createSandbox({
   cpu: 2,
   mem: 2048,
   envVars: { NODE_ENV: 'production' },
+  labels: { env: 'prod', team: 'api' },
   autoSleep: true,
   sync: true,
 });
@@ -79,6 +80,7 @@ const sandbox = await vr.createSandbox({
 | `autoSleep` | `boolean` | No | — | When `true`, the platform **auto-snapshots** the VM after idle time and wakes it on the next request. See [Sandbox lifecycle](/core-concepts/lifecycle). |
 | `region` | `string` | No | — | Target region (for example `eu`) when your account supports regional placement. |
 | `publishPorts` | `number[]` | No | — | TCP ports to expose as public HTTPS URLs (up to 4). See [Public URLs](/networking/public-urls). |
+| `labels` | `Record<string, string>` | No | — | Immutable metadata set at creation. Up to **5** labels; keys and values are at most **20** characters. Keys must use lowercase letters or numbers, may contain `-` or `_`, and must start and end with a letter or number. Neither keys nor values may contain `,` or `=`. |
 | `refId` | `string` | No | — | External reference id for your own tracking (billing, tickets, workflow run id). |
 
 \* **`name`** is required on the REST contract; the TypeScript client supplies a generated name when you omit it.
@@ -111,15 +113,22 @@ Returns a **`VRSandbox`** instance. Use **`sandbox.remove()`** (or **`vr.removeS
 |--------|---------|
 | `createSandbox(options)` | `VRSandbox` |
 | `getSandbox(id)` | `VRSandbox` |
-| `listSandboxes({ page?, limit? })` | `{ sandboxes, meta }` |
+| `listSandboxes({ page?, limit?, labels? })` | `{ sandboxes, meta }` |
 | `removeSandbox(id)` | `void` (after API delete) |
 
 **Pagination `meta`:** `total`, `page`, `limit`, `totalPages` (camelCase).
 
 ```typescript
-const { sandboxes, meta } = await vr.listSandboxes({ page: 1, limit: 50 });
+const { sandboxes, meta } = await vr.listSandboxes({
+  page: 1,
+  limit: 50,
+  labels: { env: 'prod', team: 'api' },
+});
 console.log(meta.total, meta.totalPages);
 ```
+
+Label filters use AND semantics: a sandbox must match every supplied pair, but
+may contain additional labels.
 
 ## Sandbox lifecycle
 
@@ -128,6 +137,8 @@ On the sandbox instance:
 - `sleep()` — snapshot the VM (status becomes `snapshotted`)
 - `wake()` — restore from snapshot back to `running`
 - `start()` — recovery boot for `snapshotted` / `killed` / `error` sandboxes
+- `stop()` / `pause()` — aliases of `sleep()` (the API has no `/stop` or `/pause` route)
+- `resume()` — alias of `wake()`
 - `remove()` — delete the sandbox on the API
 - `info()` — returns `Promise<this>` (refreshed view)
 

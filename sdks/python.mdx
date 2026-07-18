@@ -82,6 +82,7 @@ sandbox = vr.create_sandbox(
     cpu=2,
     mem=2048,
     env_vars={"PYTHONUNBUFFERED": "1"},
+    labels={"env": "prod", "team": "api"},
     auto_sleep=True,
     sync=True,
 )
@@ -102,6 +103,7 @@ sandbox = vr.create_sandbox(
 | `auto_sleep` | `autoSleep` | `bool` | No | — | Enable platform **auto-snapshot** after idle; the sandbox wakes on the next request. See [Sandbox lifecycle](/core-concepts/lifecycle). |
 | `region` | — | `str` | No | — | Target region when supported by your account. |
 | `publish_ports` | `publishPorts` | `list[int]` | No | — | TCP ports to expose as public HTTPS URLs (up to 4). See [Public URLs](/networking/public-urls). |
+| `labels` | — | `dict[str, str]` | No | — | Immutable metadata set at creation. Up to **5** labels; keys and values are at most **20** characters. Keys must use lowercase letters or numbers, may contain `-` or `_`, and must start and end with a letter or number. Neither keys nor values may contain `,` or `=`. |
 | `ref_id` | `refId` | `str` | No | — | External reference id for your workflows. |
 
 \* **`name`** is required on the REST contract; the Python client supplies a generated name when you omit it.
@@ -139,13 +141,17 @@ with vr.create_sandbox(name="demo", mem=2048) as sandbox:
 |--------|------|-------|
 | Create sandbox | `create_sandbox(...)` | `await create_sandbox(...)` |
 | Get sandbox | `get_sandbox(id)` | `await get_sandbox(id)` |
-| List sandboxes | `list_sandboxes(page=, limit=)` | `await list_sandboxes(...)` |
+| List sandboxes | `list_sandboxes(page=, limit=, labels=)` | `await list_sandboxes(...)` |
 | Remove by id | `remove_sandbox(id)` | `await remove_sandbox(id)` |
 
 **`list_sandboxes`** returns **`ListSandboxesResult`**:
 
 - **`.sandboxes`**: list of **`Sandbox`** instances  
 - **`.meta`**: **`ListSandboxesMeta`**: `total`, `page`, `limit`, `total_pages` (snake_case)
+
+Pass `labels={"env": "prod", "team": "api"}` to match sandboxes containing
+every supplied pair (AND semantics). Matching sandboxes may have additional
+labels.
 
 `AsyncVoidRun` supports **`async with`** and **`aclose()`** for cleanup (including the thread pool used for API calls).
 
@@ -161,6 +167,8 @@ On **`Sandbox`**:
 - **`sleep()`** / **`sleep_async()`** — snapshot the VM (status becomes `snapshotted`)
 - **`wake()`** / **`wake_async()`** — restore from snapshot back to `running`
 - **`start()`** / **`start_async()`** — recovery boot for `snapshotted` / `killed` / `error` sandboxes
+- **`stop()`** / **`pause()`** — aliases of `sleep()`; async variants alias `sleep_async()`
+- **`resume()`** — alias of `wake()`; `resume_async()` aliases `wake_async()`
 - **`remove()`** / **`remove_async()`** — delete the sandbox on the API
 - **`info()`** — returns `self` (refreshed view)
 
@@ -168,7 +176,7 @@ Deprecated aliases **`delete`** / **`delete_async`** map to remove.
 
 Any API call against a `snapshotted` sandbox transparently wakes it, so you usually don't need to call **`wake()`** yourself. See [Sandbox lifecycle](/core-concepts/lifecycle) for the full state machine.
 
-Notable attributes include **`id`**, **`name`**, **`cpu`**, **`mem`**, **`status`**, **`image`**, **`env_vars`**, **`region`**, **`org_id`**, etc.
+Notable attributes include **`id`**, **`name`**, **`cpu`**, **`mem`**, **`status`**, **`image`**, **`env_vars`**, **`region`**, **`org_id`**, and immutable **`labels`**.
 
 ## Public URLs
 
