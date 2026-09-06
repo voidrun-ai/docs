@@ -97,7 +97,7 @@ voidrun fs upload <sandbox-id> --source ./config.json --dest /app/config.json
 
 ```bash cURL
 # Upload file content
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/upload?path=/app/config.json" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/fs/upload?path=/app/config.json" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name": "VoidRun", "version": "1.0.0"}'
@@ -154,7 +154,7 @@ voidrun fs upload <sandbox-id> --source ./image.png --dest /remote/image.png
 
 ```bash cURL
 # Upload binary file with multipart
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/upload?path=/remote/image.png" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/fs/upload?path=/remote/image.png" \
   -H "X-API-Key: $VR_API_KEY" \
   -F "file=@./image.png"
 ```
@@ -207,7 +207,7 @@ voidrun fs upload <sandbox-id> --source ./large-dataset.tar.gz --dest /remote/la
 
 ```bash cURL
 # Upload large file
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/upload?path=/remote/large.tar.gz" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/fs/upload?path=/remote/large.tar.gz" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/octet-stream" \
   --data-binary @./large-dataset.tar.gz
@@ -262,7 +262,7 @@ cat ./output.json
 
 ```bash cURL
 # Download file
-curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/download?path=/app/output.json" \
+curl -X GET "https://api.void-run.com/api/sandboxes/<sandbox-id>/fs/download?path=/app/output.json" \
   -H "X-API-Key: $VR_API_KEY" \
   -o output.json
 ```
@@ -329,7 +329,7 @@ voidrun fs download <sandbox-id> --source /remote/large-log.txt --dest ./large-l
 
 ```bash cURL
 # Download large file
-curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/download?path=/remote/large-log.txt" \
+curl -X GET "https://api.void-run.com/api/sandboxes/<sandbox-id>/fs/download?path=/remote/large-log.txt" \
   -H "X-API-Key: $VR_API_KEY" \
   -o large-log.txt
 ```
@@ -374,7 +374,7 @@ voidrun fs list <sandbox-id> --path /app
 ```
 
 ```bash cURL
-curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/list?path=/app" \
+curl -X GET "https://api.void-run.com/api/sandboxes/<sandbox-id>/fs/list?path=/app" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
@@ -420,11 +420,11 @@ voidrun fs mkdir <sandbox-id> --path /app/data/logs
 
 ```bash cURL
 # Create file
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/create-file?path=/app/newfile.txt" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/fs/create-file?path=/app/newfile.txt" \
   -H "X-API-Key: $VR_API_KEY"
 
 # Create directory
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/create-directory?path=/app/data/logs" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/fs/create-directory?path=/app/data/logs" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
@@ -470,13 +470,13 @@ voidrun fs move <sandbox-id> --from /app/old-name.txt --to /app/new-name.txt
 
 ```bash cURL
 # Copy file
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/copy" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/fs/copy" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"from": "/app/source.txt", "to": "/app/destination.txt"}'
 
 # Move file
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/move" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/fs/move" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"from": "/app/old-name.txt", "to": "/app/new-name.txt"}'
@@ -514,7 +514,7 @@ voidrun fs delete <sandbox-id> --path /app/obsolete.txt
 ```
 
 ```bash cURL
-curl -X DELETE "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/delete?path=/app/obsolete.txt" \
+curl -X DELETE "https://api.void-run.com/api/sandboxes/<sandbox-id>/fs/delete?path=/app/obsolete.txt" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
@@ -554,7 +554,7 @@ voidrun fs stat <sandbox-id> --path /app/data.json
 ```
 
 ```bash cURL
-curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/stat?path=/app/data.json" \
+curl -X GET "https://api.void-run.com/api/sandboxes/<sandbox-id>/fs/stat?path=/app/data.json" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
@@ -594,7 +594,7 @@ voidrun fs search <sandbox-id> --path /app --pattern "*.py"
 ```
 
 ```bash cURL
-curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/search?path=/app&pattern=*.py" \
+curl -X GET "https://api.void-run.com/api/sandboxes/<sandbox-id>/fs/search?path=/app&pattern=*.py" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
@@ -639,7 +639,7 @@ voidrun fs compress <sandbox-id> --path /app/data --format tar.gz
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/compress" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/fs/compress" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"path": "/app/data", "format": "tar.gz"}'
@@ -683,7 +683,7 @@ voidrun fs extract <sandbox-id> --archive /app/data.tar.gz --dest /app/extracted
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/extract" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/fs/extract" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"archive": "/app/data.tar.gz", "dest": "/app/extracted"}'
@@ -749,7 +749,7 @@ voidrun fs watch <sandbox-id> --path /app --recursive
 ```bash cURL
 # File watching: start a session (HTTP), then open a WebSocket to the stream URL.
 # 1) POST .../files/watch with JSON body {"path":"/app","recursive":true}
-# 2) Connect (TLS): wss://platform.void-run.com/api/sandboxes/<sandbox-id>/files/watch/<session-id>/stream
+# 2) Connect (TLS): wss://api.void-run.com/api/sandboxes/<sandbox-id>/files/watch/<session-id>/stream
 #    Use the sessionId from the start-watch response; pass X-API-Key when the server expects it on upgrade.
 ```
 </CodeGroup>
@@ -944,30 +944,30 @@ voidrun delete $SANDBOX_ID
 # Complete workflow via cURL
 
 # 1. Create sandbox
-SANDBOX_ID=$(curl -s -X POST "https://platform.void-run.com/api/sandboxes" \
+SANDBOX_ID=$(curl -s -X POST "https://api.void-run.com/api/sandboxes" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name":"data-processor","cpu":2,"mem":4096}' | jq -r '.data.id')
 
 # 2. Upload input data
-curl -X POST "https://platform.void-run.com/api/sandboxes/$SANDBOX_ID/fs/upload?path=/data/input.json" \
+curl -X POST "https://api.void-run.com/api/sandboxes/$SANDBOX_ID/fs/upload?path=/data/input.json" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"records":[{"id":1,"value":100},{"id":2,"value":200}]}'
 
 # 3. Run processing
-curl -X POST "https://platform.void-run.com/api/sandboxes/$SANDBOX_ID/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/$SANDBOX_ID/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "python3 -c \"import json; print(\\\"Done\\\")\""}'
 
 # 4. Download results
-curl -X GET "https://platform.void-run.com/api/sandboxes/$SANDBOX_ID/fs/download?path=/data/output.json" \
+curl -X GET "https://api.void-run.com/api/sandboxes/$SANDBOX_ID/fs/download?path=/data/output.json" \
   -H "X-API-Key: $VR_API_KEY" \
   -o output.json
 
 # 5. Clean up
-curl -X DELETE "https://platform.void-run.com/api/sandboxes/$SANDBOX_ID" \
+curl -X DELETE "https://api.void-run.com/api/sandboxes/$SANDBOX_ID" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>

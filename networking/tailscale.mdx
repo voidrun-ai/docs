@@ -114,13 +114,13 @@ voidrun exec <sandbox-id> --command "sudo tailscale status"
 
 ```bash cURL
 # Create a sandbox
-curl -X POST "https://platform.void-run.com/api/sandboxes" \
+curl -X POST "https://api.void-run.com/api/sandboxes" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name": "tailscale-sandbox", "cpu": 2, "mem": 2048}'
 
 # Connect to Tailscale
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "sudo tailscale up --authkey=$TAILSCALE_AUTH_KEY --hostname=voidrun-sandbox"}'
@@ -169,7 +169,7 @@ voidrun exec <sandbox-id> --command "sudo tailscale up --authkey=$TAILSCALE_AUTH
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "sudo tailscale up --authkey=$TAILSCALE_AUTH_KEY --hostname=voidrun-agent --tag=tag:voidrun"}'
@@ -231,7 +231,7 @@ voidrun exec <sandbox-id> --command "curl -s http://postgres.internal.ts.net:543
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "curl -s http://internal-api.tailnet-name.tsvc:8080/health"}'
@@ -282,7 +282,7 @@ voidrun exec <sandbox-id> --command 'PGPASSWORD=secret psql -h postgres.internal
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "sudo apt-get update && sudo apt-get install -y postgresql-client"}'
@@ -321,7 +321,7 @@ voidrun exec <sandbox-id> --command 'ssh user@internal-server.tailnet-name.ts.ne
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "ssh user@internal-server.tailnet-name.ts.net \"uname -a\""}'
@@ -395,7 +395,7 @@ voidrun exec <sandbox-id> --command "sudo tailscale ip -4"
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "sudo tailscale status"}'
@@ -467,7 +467,7 @@ voidrun exec <sandbox-id> --command "sudo tailscale down"
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "sudo tailscale down"}'

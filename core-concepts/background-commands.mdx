@@ -23,7 +23,7 @@ For a full comparison with sync **`exec`**, streaming, PTY, and **`runCode`**, s
 
 ## REST endpoints
 
-All routes are under **`/sandboxes/{id}/commands/`** (prefix with your API base, e.g. **`https://platform.void-run.com/api`**). Authenticate with **`X-API-Key`**.
+All routes are under **`/sandboxes/{id}/commands/`** (prefix with your API base, e.g. **`https://api.void-run.com/api`**). Authenticate with **`X-API-Key`**.
 
 | Method | Path | Role |
 |--------|------|------|
@@ -113,7 +113,7 @@ voidrun bg run <sandbox-id> --command 'npm run dev' --cwd /app
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/run" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/commands/run" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -154,7 +154,7 @@ voidrun bg list <sandbox-id>
 ```
 
 ```bash cURL
-curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/list" \
+curl -X GET "https://api.void-run.com/api/sandboxes/<sandbox-id>/commands/list" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
@@ -199,7 +199,7 @@ voidrun bg wait <sandbox-id> --pid <pid>
 
 ```bash cURL
 # Replace 12345 with the PID from commands/run
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/wait" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/commands/wait" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"pid": 12345}'
@@ -261,7 +261,7 @@ voidrun bg run <sandbox-id> --command 'echo use SDK or cURL for attach'
 
 ```bash cURL
 # Replace 12345 with the PID from commands/run
-curl -N -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/attach" \
+curl -N -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/commands/attach" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -H "Accept: text/event-stream" \
@@ -299,7 +299,7 @@ voidrun bg kill <sandbox-id> --pid <pid>
 
 ```bash cURL
 # Replace 12345 with the PID from commands/run
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/kill" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/commands/kill" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"pid": 12345}'
@@ -358,15 +358,15 @@ voidrun bg wait <sandbox-id> --pid <pid>
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/run" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/commands/run" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "npm run dev", "cwd": "/app", "timeout": 0}'
 
-curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/list" \
+curl -X GET "https://api.void-run.com/api/sandboxes/<sandbox-id>/commands/list" \
   -H "X-API-Key: $VR_API_KEY"
 
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/wait" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/commands/wait" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"pid": 12345}'

@@ -56,7 +56,7 @@ Both SDKs use the **same packaged default API base URL** as OpenAPI **`servers`*
 
 ### Interactive API Reference
 
-This documentation site includes an **API Reference** tab generated from a bundled copy of the spec at **`docs/openapi/voidrun.yml`** (synced from `voidrun/openapi.yml` in the monorepo: refresh the copy when the canonical spec changes). The spec’s **`servers`** entry (e.g. `https://platform.void-run.com/api`) drives the API playground base URL.
+This documentation site includes an **API Reference** tab generated from a bundled copy of the spec at **`docs/openapi/voidrun.yml`** (synced from `voidrun/openapi.yml` in the monorepo: refresh the copy when the canonical spec changes). The spec’s **`servers`** entry (e.g. `https://api.void-run.com/api`) drives the API playground base URL.
 
 <Note>
 **Contributors:** keep **`docs/openapi/voidrun.yml`** in sync with **`voidrun/openapi.yml`**. MCP tools follow the same HTTP contract as REST; extend **`voidrun/openapi.yml`**, MCP handlers, and this site’s OpenAPI copy together when fields change. **Branding:** Mintlify maps **`logo.light`** to the navbar asset in **dark** UI and **`logo.dark`** in **light** UI (see [Mintlify appearance and branding](https://mintlify.com/docs/organize/settings)).

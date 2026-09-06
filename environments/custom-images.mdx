@@ -107,7 +107,7 @@ voidrun exec <sandbox-id> --command "python3 --version"
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes" \
+curl -X POST "https://api.void-run.com/api/sandboxes" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -170,7 +170,7 @@ const apiKey = process.env.VR_API_KEY!;
 
 const vr = new VoidRun({ apiKey });
 // Same default host as OpenAPI `servers` / cURL below; self-hosted: pass `baseUrl` to `VoidRun` and use that root here.
-const apiRoot = 'https://platform.void-run.com/api';
+const apiRoot = 'https://api.void-run.com/api';
 
 const res = await fetch(`${apiRoot.replace(/\/$/, '')}/images`, {
   headers: { 'X-API-Key': apiKey },
@@ -206,7 +206,7 @@ sandbox = vr.create_sandbox(name="custom-app", image="code", cpu=2, mem=2048)
 ```
 
 ```bash cURL
-curl -sS "https://platform.void-run.com/api/images" \
+curl -sS "https://api.void-run.com/api/images" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
@@ -297,7 +297,7 @@ voidrun create --template code --env NODE_ENV=production --env DATABASE_URL=post
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes" \
+curl -X POST "https://api.void-run.com/api/sandboxes" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{

@@ -101,13 +101,13 @@ voidrun exec <sandbox-id> --command "ffmpeg -version"
 
 ```bash cURL
 # Update package lists
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "apt-get update"}'
 
 # Install system packages
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "apt-get install -y ffmpeg git curl", "timeout": 120}'
@@ -217,7 +217,7 @@ voidrun exec <sandbox-id> --command "python3 -c 'import pandas; print(pandas.__v
 
 ```bash cURL
 # Install Python packages
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "pip install pandas numpy scikit-learn", "timeout": 120}'
@@ -263,7 +263,7 @@ voidrun exec <sandbox-id> --command 'pip install "numpy>=1.20,<2.0"'
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "pip install tensorflow==2.15.0"}'
@@ -331,7 +331,7 @@ voidrun exec <sandbox-id> --command "pip install -r /app/requirements.txt" --tim
 
 ```bash cURL
 # Upload requirements.txt
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/upload?path=/app/requirements.txt" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/fs/upload?path=/app/requirements.txt" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: text/plain" \
   -d 'pandas==2.0.0
@@ -339,7 +339,7 @@ numpy>=1.20
 requests'
 
 # Install from requirements.txt
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "pip install -r /app/requirements.txt", "timeout": 180}'
@@ -436,13 +436,13 @@ voidrun exec <sandbox-id> --command "cd /app && npm install express axios lodash
 
 ```bash cURL
 # Initialize npm project
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "mkdir -p /app && cd /app && npm init -y"}'
 
 # Install npm packages
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "cd /app && npm install express axios lodash", "timeout": 120}'
@@ -517,13 +517,13 @@ voidrun exec <sandbox-id> --command "cd /app && npm install" --timeout 120
 
 ```bash cURL
 # Upload package.json
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/upload?path=/app/package.json" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/fs/upload?path=/app/package.json" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name":"my-app","dependencies":{"express":"^4.18.0"}}'
 
 # Install dependencies
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "cd /app && npm install", "timeout": 120}'
@@ -656,13 +656,13 @@ voidrun exec <sandbox-id> --command "python3 -c 'import requests; print(requests
 
 ```bash cURL
 # Create sandbox
-curl -X POST "https://platform.void-run.com/api/sandboxes" \
+curl -X POST "https://api.void-run.com/api/sandboxes" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"image": "code", "cpu": 4, "mem": 4096}'
 
 # Install packages
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "pip install requests beautifulsoup4"}'

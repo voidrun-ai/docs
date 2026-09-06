@@ -13,7 +13,7 @@ info:
     name: Proprietary
 
 servers:
-  - url: https://platform.void-run.com/api
+  - url: https://api.void-run.com/api
     description: Production server
 
 tags:
@@ -278,7 +278,7 @@ components:
         diskMB:
           type: integer
           description: Disk size in MiB
-          example: 5120
+          example: 10240
         status:
           type: string
           description: >-

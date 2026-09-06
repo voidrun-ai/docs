@@ -70,7 +70,7 @@ voidrun exec <sandbox-id> --command "python3 -m http.server 8080 &"
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes" \
+curl -X POST "https://api.void-run.com/api/sandboxes" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -122,7 +122,7 @@ voidrun public-urls <sandbox-id> --json
 ```
 
 ```bash cURL
-curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/public-urls" \
+curl -X GET "https://api.void-run.com/api/sandboxes/<sandbox-id>/public-urls" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
@@ -149,7 +149,7 @@ Use `PATCH /sandboxes/{id}/publish-ports` to replace the list. The gateway recon
 
 <CodeGroup>
 ```bash cURL
-curl -X PATCH "https://platform.void-run.com/api/sandboxes/<sandbox-id>/publish-ports" \
+curl -X PATCH "https://api.void-run.com/api/sandboxes/<sandbox-id>/publish-ports" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"publishPorts": [8080]}'

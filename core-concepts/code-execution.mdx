@@ -85,13 +85,13 @@ voidrun exec <sandbox-id> --command 'echo "Hello, VoidRun!" && pwd'
 
 ```bash cURL
 # Create sandbox
-curl -X POST "https://platform.void-run.com/api/sandboxes" \
+curl -X POST "https://api.void-run.com/api/sandboxes" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"cpu": 2, "mem": 2048}'
 
 # Execute command (replace <sandbox-id>)
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "echo \"Hello, VoidRun!\" && pwd"}'
@@ -168,7 +168,7 @@ voidrun exec <sandbox-id> --command 'python3 /app/script.py'
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "python3 -c \"print(2 + 2)\""}'
@@ -233,7 +233,7 @@ voidrun exec <sandbox-id> --command 'node /app/script.js'
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "node -e \"console.log(2 + 2)\""}'
@@ -295,7 +295,7 @@ voidrun exec <sandbox-id> --command 'echo "Hostname: $(hostname)" && date && upt
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "echo \"Hostname: $(hostname)\" && date"}'
@@ -360,7 +360,7 @@ voidrun exec <sandbox-id> --command 'ls -la /nonexistent'
 
 ```bash cURL
 # Response includes stdout, stderr, and exitCode
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "ls -la /nonexistent"}'
@@ -430,7 +430,7 @@ voidrun exec <sandbox-id> --command 'python3 -c "import json; print(json.dumps({
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "python3 -c \"import json; print(json.dumps({\\\"name\\\": \\\"VoidRun\\\"}))\""}'
@@ -491,7 +491,7 @@ voidrun exec <sandbox-id> --command 'for i in {1..10}; do echo "Count: $i"; slee
 
 ```bash cURL
 # Use the exec-stream endpoint for SSE streaming
-curl -N "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec-stream" \
+curl -N "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec-stream" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "for i in {1..10}; do echo \"Count: $i\"; sleep 1; done"}'
@@ -555,7 +555,7 @@ voidrun exec <sandbox-id> --command 'sleep 30 && echo "Done"' --timeout 60
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "sleep 30 && echo \"Done\"", "timeout": 60}'
@@ -603,7 +603,7 @@ voidrun exec <sandbox-id> --command 'pwd && ls -la' --cwd /app/src
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "pwd && ls -la", "cwd": "/app/src"}'
@@ -657,7 +657,7 @@ voidrun exec <sandbox-id> --command 'API_KEY=secret DEBUG=true && echo "API Key:
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -734,13 +734,13 @@ voidrun bg kill <sandbox-id> --pid <pid>
 
 ```bash cURL
 # Start background process
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/run" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/commands/run" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "npm run dev", "cwd": "/app", "timeout": 0}'
 
 # List processes
-curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/commands/list" \
+curl -X GET "https://api.void-run.com/api/sandboxes/<sandbox-id>/commands/list" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
@@ -806,7 +806,7 @@ voidrun exec <sandbox-id> --command 'some-command'
 
 ```bash cURL
 # Check response for exitCode field
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "some-command"}'

@@ -130,7 +130,7 @@ voidrun create \
 ```
 
 ```bash cURL
-curl -X POST https://platform.void-run.com/api/sandboxes \
+curl -X POST https://api.void-run.com/api/sandboxes \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -197,13 +197,13 @@ voidrun exec <sandbox-id> --command 'npm install && npm run build' --stream
 
 ```bash cURL
 # Execute a command
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "echo \"Hello from VoidRun!\""}'
 
 # Stream command output (SSE endpoint)
-curl -N "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec-stream" \
+curl -N "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec-stream" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "npm install && npm run build"}'
@@ -273,18 +273,18 @@ voidrun fs delete <sandbox-id> --path /app/hello.txt
 
 ```bash cURL
 # Upload a file
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/upload" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/fs/upload" \
   -H "X-API-Key: $VR_API_KEY" \
   -F "file=@./local-file.txt" \
   -F "path=/app/hello.txt"
 
 # Download a file
-curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/download?path=/app/hello.txt" \
+curl -X GET "https://api.void-run.com/api/sandboxes/<sandbox-id>/fs/download?path=/app/hello.txt" \
   -H "X-API-Key: $VR_API_KEY" \
   -o downloaded.txt
 
 # List files
-curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/fs/list?path=/app" \
+curl -X GET "https://api.void-run.com/api/sandboxes/<sandbox-id>/fs/list?path=/app" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
@@ -357,7 +357,7 @@ voidrun run-code <sandbox-id> --language python --file ./script.py
 
 ```bash cURL
 # Run code via exec endpoint
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -425,23 +425,23 @@ voidrun delete <sandbox-id>
 
 ```bash cURL
 # List all sandboxes
-curl -X GET "https://platform.void-run.com/api/sandboxes" \
+curl -X GET "https://api.void-run.com/api/sandboxes" \
   -H "X-API-Key: $VR_API_KEY"
 
 # Get sandbox details
-curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>" \
+curl -X GET "https://api.void-run.com/api/sandboxes/<sandbox-id>" \
   -H "X-API-Key: $VR_API_KEY"
 
 # Sleep a sandbox
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/sleep" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/sleep" \
   -H "X-API-Key: $VR_API_KEY"
 
 # Wake a sandbox
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/wake" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/wake" \
   -H "X-API-Key: $VR_API_KEY"
 
 # Delete a sandbox
-curl -X DELETE "https://platform.void-run.com/api/sandboxes/<sandbox-id>" \
+curl -X DELETE "https://api.void-run.com/api/sandboxes/<sandbox-id>" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
@@ -565,7 +565,7 @@ echo "Sandbox deleted"
 #!/bin/bash
 
 VR_API_KEY="your-api-key"
-BASE_URL="https://platform.void-run.com/api"
+BASE_URL="https://api.void-run.com/api"
 
 # Create sandbox
 SANDBOX_ID=$(curl -s -X POST "$BASE_URL/sandboxes" \
