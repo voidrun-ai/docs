@@ -60,7 +60,24 @@ stateDiagram-v2
 
 ## Auto-sleep and auto-delete
 
-When you pass `autoSleep: true` on create, the platform manages the lifecycle for you:
+When you pass `autoSleep: true` on create, the platform manages the lifecycle for you. You can change `autoSleep` later with `PATCH /sandboxes/{id}`:
+
+```bash
+curl -X PATCH "https://api.void-run.com/api/sandboxes/<sandbox-id>" \
+  -H "X-API-Key: $VR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"autoSleep":false}'
+```
+
+```typescript TypeScript
+await sandbox.update({ autoSleep: false });
+```
+
+```python Python
+sandbox.update(auto_sleep=False)
+```
+
+The flag is stored on the sandbox document. The next auto-lifecycle scan (default every 30 seconds) picks it up; the VM is not restarted. `autoSleep: false` skips idle snapshot only. It does **not** stop auto-delete of a sandbox that is already `snapshotted`.
 
 <Steps>
   <Step title="Activity monitoring">

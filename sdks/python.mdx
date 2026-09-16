@@ -167,6 +167,7 @@ On **`Sandbox`**:
 - **`sleep()`** / **`sleep_async()`** — snapshot the VM (status becomes `snapshotted`)
 - **`wake()`** / **`wake_async()`** — restore from snapshot back to `running`
 - **`start()`** / **`start_async()`** — recovery boot for `snapshotted` / `killed` / `error` sandboxes
+- **`update(auto_sleep=...)`** / **`update_async()`** — `PATCH /sandboxes/{id}`; currently `auto_sleep` only
 - **`stop()`** / **`pause()`** — aliases of `sleep()`; async variants alias `sleep_async()`
 - **`resume()`** — alias of `wake()`; `resume_async()` aliases `wake_async()`
 - **`remove()`** / **`remove_async()`** — delete the sandbox on the API
