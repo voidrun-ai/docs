@@ -81,7 +81,7 @@ The flag is stored on the sandbox document. The next auto-lifecycle scan (defaul
 
 <Steps>
   <Step title="Activity monitoring">
-    The platform tracks activity per sandbox (command execution, filesystem operations, network requests, active PTY / exec streams).
+    The platform treats sandbox **API requests** (for example `exec`, filesystem calls, and opening a PTY) as activity. An open terminal connection alone does **not** keep the sandbox awake; see [PTY](/core-concepts/pty#auto-sleep-interaction).
   </Step>
   <Step title="Auto-sleep (default: 1 minute idle)">
     After the configured idle window, the sandbox is snapshotted: memory + disk are persisted and the VM process exits. Status becomes `snapshotted`.
@@ -105,6 +105,10 @@ The flag is stored on the sandbox document. The next auto-lifecycle scan (defaul
 <Note>
 These are hosted-VoidRun defaults. On self-hosted deployments, tune the environment variables above and disable the whole loop with `AUTO_LIFECYCLE_ENABLED=false` if you want per-sandbox opt-in only.
 </Note>
+
+<Warning>
+An open **PTY** connection does not count as continuous activity. After you connect, idle time still advances unless other API calls keep the sandbox active. Details: [PTY → Auto-sleep interaction](/core-concepts/pty#auto-sleep-interaction).
+</Warning>
 
 ### Wake is transparent
 
