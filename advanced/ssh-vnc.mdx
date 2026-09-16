@@ -105,14 +105,14 @@ voidrun get <sandbox-id>
 
 ```bash cURL
 # Create a sandbox
-curl -X POST "https://platform.void-run.com/api/sandboxes" \
+curl -X POST "https://api.void-run.com/api/sandboxes" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name": "ssh-demo", "cpu": 2, "mem": 2048}'
 
 # TODO: Verify exact endpoint for SSH credentials
 # Example expected endpoint:
-# curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/ssh" \
+# curl -X GET "https://api.void-run.com/api/sandboxes/<sandbox-id>/ssh" \
 #   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
@@ -328,7 +328,7 @@ voidrun exec <sandbox-id> --command "vncserver -list"
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "sudo apt-get update && sudo apt-get install -y xfce4 xfce4-goodies tightvncserver"}'
@@ -400,7 +400,7 @@ voidrun get <sandbox-id>
 ```bash cURL
 # TODO: Verify exact endpoint for VNC configuration
 # Example expected endpoint:
-# curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>/vnc" \
+# curl -X GET "https://api.void-run.com/api/sandboxes/<sandbox-id>/vnc" \
 #   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
@@ -487,7 +487,7 @@ voidrun exec <sandbox-id> --command "websockify --web=/usr/share/novnc/ 6080 loc
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "sudo apt-get install -y novnc websockify && websockify --web=/usr/share/novnc/ 6080 localhost:5901 &"}'
@@ -589,7 +589,7 @@ voidrun download <sandbox-id> /tmp/screenshot.png ./screenshot.png
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "sudo apt-get install -y chromium-browser && pip install selenium"}'
@@ -664,7 +664,7 @@ voidrun exec <sandbox-id> --command "while true; do sleep 60; done &"
 
 ```bash cURL
 # Wake sandbox
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/wake" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/wake" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
@@ -713,11 +713,11 @@ voidrun wake <sandbox-id>
 
 ```bash cURL
 # Check sandbox status
-curl -X GET "https://platform.void-run.com/api/sandboxes/<sandbox-id>" \
+curl -X GET "https://api.void-run.com/api/sandboxes/<sandbox-id>" \
   -H "X-API-Key: $VR_API_KEY"
 
 # Wake if snapshotted
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/wake" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/wake" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>

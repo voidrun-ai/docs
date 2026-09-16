@@ -92,13 +92,13 @@ voidrun exec <sandbox-id> --command "docker info --format '{{.ServerVersion}}'"
 
 ```bash cURL
 # Create sandbox
-curl -X POST "https://platform.void-run.com/api/sandboxes" \
+curl -X POST "https://api.void-run.com/api/sandboxes" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name": "docker-sandbox", "image": "docker-lite", "cpu": 4, "mem": 4096}'
 
 # Verify Docker is running
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "docker --version"}'
@@ -160,7 +160,7 @@ voidrun exec <sandbox-id> --command "curl -s http://localhost:80"
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "docker run -d --name nginx -p 80:80 nginx:latest"}'
@@ -240,7 +240,7 @@ voidrun exec <sandbox-id> --command "docker ps"
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "docker network create app-network && docker run -d --name postgres --network app-network -e POSTGRES_PASSWORD=secret postgres:15"}'
@@ -335,7 +335,7 @@ voidrun exec <sandbox-id> --command "kubectl get nodes"
 
 ```bash cURL
 # Install K3s
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "curl -sfL https://get.k3s.io | sh -", "timeout": 120}'
@@ -412,7 +412,7 @@ voidrun exec <sandbox-id> --command "kubectl get pods -o wide"
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "kubectl create deployment nginx --image=nginx:latest"}'
@@ -492,7 +492,7 @@ voidrun exec <sandbox-id> --command "df -h"
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "free -h && df -h"}'
@@ -552,7 +552,7 @@ voidrun exec <sandbox-id> --command "docker image prune -af && docker volume pru
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "docker stop $(docker ps -aq) 2>/dev/null; docker rm $(docker ps -aq) 2>/dev/null; docker image prune -af"}'

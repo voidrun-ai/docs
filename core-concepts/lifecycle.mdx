@@ -128,7 +128,7 @@ print("Sandbox snapshotted")
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/sleep" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/sleep" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
@@ -159,7 +159,7 @@ print("Sandbox running")
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/wake" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/wake" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
@@ -188,7 +188,7 @@ sandbox.start()
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/start" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/start" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
@@ -225,7 +225,7 @@ sandbox.remove()
 ```
 
 ```bash cURL
-curl -X DELETE "https://platform.void-run.com/api/sandboxes/<sandbox-id>" \
+curl -X DELETE "https://api.void-run.com/api/sandboxes/<sandbox-id>" \
   -H "X-API-Key: $VR_API_KEY"
 ```
 </CodeGroup>
@@ -309,7 +309,7 @@ def run_ai_agent():
 
 ```bash cURL
 # Create with autoSleep so the platform snapshots on idle
-curl -X POST "https://platform.void-run.com/api/sandboxes" \
+curl -X POST "https://api.void-run.com/api/sandboxes" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name":"ai-agent-session","cpu":4,"mem":4096,"autoSleep":true}'

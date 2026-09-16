@@ -123,13 +123,13 @@ voidrun delete <sandbox-id>
 
 ```bash cURL
 # Create sandbox
-curl -X POST https://platform.void-run.com/api/sandboxes \
+curl -X POST https://api.void-run.com/api/sandboxes \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"cpu": 2, "mem": 2048}'
 
 # Execute code (replace <sandbox-id> with actual ID)
-curl -X POST https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec \
+curl -X POST https://api.void-run.com/api/sandboxes/<sandbox-id>/exec \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "python3 -c \"print(\\\"Hello from VoidRun\\\")\""}'
@@ -178,7 +178,7 @@ voidrun delete <sandbox-id>
 ```
 
 ```bash cURL
-curl -X POST https://platform.void-run.com/api/sandboxes \
+curl -X POST https://api.void-run.com/api/sandboxes \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"image": "code", "cpu": 4, "mem": 4096}'

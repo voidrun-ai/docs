@@ -94,13 +94,13 @@ voidrun exec <sandbox-id> --command "curl -s --connect-timeout 5 https://google.
 
 ```bash cURL
 # Create sandbox
-curl -X POST "https://platform.void-run.com/api/sandboxes" \
+curl -X POST "https://api.void-run.com/api/sandboxes" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name": "isolated-sandbox", "cpu": 2, "mem": 2048}'
 
 # Disable outbound internet
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "iptables -A OUTPUT -p tcp --dport 80 -j DROP && iptables -A OUTPUT -p tcp --dport 443 -j DROP"}'
@@ -153,7 +153,7 @@ voidrun exec <sandbox-id> --command "curl -s --connect-timeout 5 https://api.ipi
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "iptables -D OUTPUT -p tcp --dport 80 -j DROP 2>/dev/null; iptables -D OUTPUT -p tcp --dport 443 -j DROP 2>/dev/null"}'
@@ -262,7 +262,7 @@ voidrun exec <sandbox-id> --command "curl -s https://api.github.com/zen"
 
 ```bash cURL
 # Configure allowlist
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "iptables -A OUTPUT -p tcp --dport 443 -j DROP && iptables -I OUTPUT -d $(dig +short api.github.com | head -1) -p tcp --dport 443 -j ACCEPT"}'
@@ -325,7 +325,7 @@ iptables -I OUTPUT -d 10.0.0.50 -p tcp --dport 443 -j ACCEPT
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "iptables -A OUTPUT -p tcp --dport 443 -j DROP && iptables -I OUTPUT -d 192.168.1.100 -p tcp --dport 443 -j ACCEPT"}'
@@ -414,7 +414,7 @@ voidrun exec <sandbox-id> --command "curl -s --connect-timeout 5 https://faceboo
 ```
 
 ```bash cURL
-curl -X POST "https://platform.void-run.com/api/sandboxes/<sandbox-id>/exec" \
+curl -X POST "https://api.void-run.com/api/sandboxes/<sandbox-id>/exec" \
   -H "X-API-Key: $VR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"command": "iptables -A OUTPUT -d $(dig +short facebook.com | head -1) -j DROP"}'

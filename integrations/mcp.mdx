@@ -25,7 +25,7 @@ VoidRun is a **remote** MCP server: your client opens **HTTPS** (or local **HTTP
 | Item | Detail |
 |------|--------|
 | **Transport** | [Streamable HTTP](https://modelcontextprotocol.io/) MCP |
-| **Endpoint** | `POST {baseUrl}/mcp` where `{baseUrl}` is your API root including **`/api`** (example: `https://platform.void-run.com/api/mcp`) |
+| **Endpoint** | `POST {baseUrl}/mcp` where `{baseUrl}` is your API root including **`/api`** (example: `https://api.void-run.com/api/mcp`) |
 | **Auth** | **`X-API-Key`** on every authenticated MCP request (same as REST) |
 | **Capabilities** | Create/list/get/delete sandboxes, **`execute_command`**, **`run_code`**, filesystem tools, background commands, read-only **resources** for discovery |
 
@@ -50,7 +50,7 @@ After **`initialize`**, clients must send the **`Mcp-Session-Id`** header on lat
 
 | Environment | Base URL | MCP URL |
 |-------------|----------|---------|
-| Hosted (VoidRun Cloud) | `https://platform.void-run.com/api` | `https://platform.void-run.com/api/mcp` |
+| Hosted (VoidRun Cloud) | `https://api.void-run.com/api` | `https://api.void-run.com/api/mcp` |
 | Local `go run` default | `http://127.0.0.1:33944/api` (or your `SERVER_PORT`) | `http://127.0.0.1:33944/api/mcp` |
 
 Self-hosted: replace the host and path prefix with whatever **`VR_API_URL`** points at (see [Self-hosted deployments](/advanced/self-hosted)), then append **`/mcp`**.
@@ -75,7 +75,7 @@ Do not commit real API keys. Prefer **environment substitution** (Cursor **`${en
 {
   "mcpServers": {
     "voidrun": {
-      "url": "https://platform.void-run.com/api/mcp",
+      "url": "https://api.void-run.com/api/mcp",
       "headers": {
         "X-API-Key": "${env:VR_API_KEY}"
       }
@@ -110,7 +110,7 @@ VS Code stores MCP in **`mcp.json`**: either **`.vscode/mcp.json`** in the works
   "servers": {
     "voidrun": {
       "type": "http",
-      "url": "https://platform.void-run.com/api/mcp",
+      "url": "https://api.void-run.com/api/mcp",
       "headers": {
         "X-API-Key": "${input:voidrun-api-key}"
       }
@@ -130,7 +130,7 @@ VS Code stores MCP in **`mcp.json`**: either **`.vscode/mcp.json`** in the works
 **One-off (user or local scope):**
 
 ```bash
-claude mcp add --transport http voidrun https://platform.void-run.com/api/mcp \
+claude mcp add --transport http voidrun https://api.void-run.com/api/mcp \
   --header "X-API-Key: YOUR_KEY_HERE"
 ```
 
@@ -143,7 +143,7 @@ Use **`--scope project`** to write the team-shared **`.mcp.json`** at the projec
   "mcpServers": {
     "voidrun": {
       "type": "http",
-      "url": "https://platform.void-run.com/api/mcp",
+      "url": "https://api.void-run.com/api/mcp",
       "headers": {
         "X-API-Key": "${VR_API_KEY}"
       }
@@ -160,7 +160,7 @@ Applies to **claude.ai**, **Claude Desktop**, **Cowork**, and mobile when using 
 
 Anthropic’s **custom connectors** path lets you attach a **remote MCP URL** from **claude.ai**, **Claude Desktop**, **Cowork**, and mobile, with traffic originating from **Anthropic’s cloud** (not only your laptop). That means:
 
-- Your MCP URL (**`https://platform.void-run.com/api/mcp`** for hosted VoidRun) must be reachable from the **public internet** (or you must allowlist [Anthropic IP ranges](https://platform.claude.com/docs/en/api/ip-addresses)).
+- Your MCP URL (**`https://api.void-run.com/api/mcp`** for hosted VoidRun) must be reachable from the **public internet** (or you must allowlist [Anthropic IP ranges](https://platform.claude.com/docs/en/api/ip-addresses)).
 - Follow **Customize → Connectors** and Anthropic’s walkthrough: [Get started with custom connectors using remote MCP](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).
 
 <Note>
@@ -177,7 +177,7 @@ In supported JetBrains IDEs, open **GitHub Copilot Chat** in **Agent** mode, use
 
 Any editor or agent runtime that supports **remote MCP over HTTP** (Streamable HTTP, with optional SSE fallback) can reuse:
 
-- **URL:** `https://platform.void-run.com/api/mcp` (hosted) or `http://localhost:<port>/api/mcp` (local).
+- **URL:** `https://api.void-run.com/api/mcp` (hosted) or `http://localhost:<port>/api/mcp` (local).
 - **Header:** `X-API-Key: <key>` (same as REST).
 
 Consult that product’s MCP documentation for the exact JSON schema (`headers` vs `requestInit`, env substitution, OAuth, etc.).
@@ -197,7 +197,7 @@ Useful to verify connectivity and tool names without the IDE.
 **CLI (list tools):**
 
 ```bash
-npx @modelcontextprotocol/inspector --cli "https://platform.void-run.com/api/mcp" \
+npx @modelcontextprotocol/inspector --cli "https://api.void-run.com/api/mcp" \
   --transport http \
   --header "X-API-Key: $VR_API_KEY" \
   --method tools/list
