@@ -216,6 +216,7 @@ All sandbox-scoped tools take **`id`** as the sandbox **document id** (hex strin
 | **`create_sandbox`** | Create a VM. Same fields as REST **`CreateSandboxRequest`**: **`name`** (required, DNS-1123), optional **`image`**, **`cpu`**, **`mem`**, **`orgId`**, **`userId`**, **`sync`**, **`envVars`**, **`autoSleep`**, **`region`**, **`publishPorts`**, **`refId`**. |
 | **`list_sandboxes`** | Paginated list. Optional **`page`**, **`limit`**. |
 | **`get_sandbox`** | **`id`** required. |
+| **`update_sandbox`** | **`id`** required. Optional **`autoSleep`**. Same as REST **`PATCH /sandboxes/{id}`**. |
 | **`delete_sandbox`** | **`id`** required. |
 | **`execute_command`** | Shell in VM: **`id`**, **`command`**, optional **`timeout`** (1–300s), **`cwd`**, **`env`**. |
 | **`run_code`** | Snippet exec: **`id`**, **`code`**, optional **`language`** (python, javascript, typescript, bash, and aliases), **`timeout`**, **`cwd`**, **`env`**. |

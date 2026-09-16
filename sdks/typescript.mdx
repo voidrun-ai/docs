@@ -137,6 +137,7 @@ On the sandbox instance:
 - `sleep()` — snapshot the VM (status becomes `snapshotted`)
 - `wake()` — restore from snapshot back to `running`
 - `start()` — recovery boot for `snapshotted` / `killed` / `error` sandboxes
+- `update({ autoSleep })` — `PATCH /sandboxes/{id}`; currently `autoSleep` only
 - `stop()` / `pause()` — aliases of `sleep()` (the API has no `/stop` or `/pause` route)
 - `resume()` — alias of `wake()`
 - `remove()` — delete the sandbox on the API
