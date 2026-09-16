@@ -16,6 +16,45 @@ VoidRun exposes **pseudo-terminal (PTY)** access over **WebSocket** so you can r
 
 See [Code execution](/core-concepts/code-execution) for exec and streaming exec.
 
+## Ephemeral vs persistent
+
+| Mode | How you connect | Shell lifetime |
+|------|-----------------|----------------|
+| **Ephemeral** | WebSocket `GET /sandboxes/{id}/pty` (no session id) | Starts on connect; **destroyed when the WebSocket closes** |
+| **Persistent** | `POST /sandboxes/{id}/pty/sessions` → WebSocket `.../pty/sessions/{sessionId}` | Survives disconnect until you **delete** the session, bash exits, or the **sandbox** sleeps / stops / is deleted |
+
+Persistent sessions also support REST helpers without a live socket: **`execute`**, **`buffer`**, **`resize`**, **`list`**, and **`delete`**. Several clients can attach to the same session; output is broadcast to all of them.
+
+On reconnect, the agent sends a **ring buffer** of recent output (up to about **64 KB**, trimmed to the last **~32 KB** when full), then live output.
+
+## Session cleanup (persistent)
+
+Persistent PTY has **no idle auto-close** when the last client disconnects. The bash process keeps running.
+
+| Trigger | What happens |
+|---------|----------------|
+| **`DELETE .../pty/sessions/{sessionId}`** | Session and shell are torn down |
+| **Bash process exits** | Agent removes the session on the next cleanup tick (~1 minute) |
+| **Sandbox snapshot / stop / delete** | The VM (and every PTY inside it) goes away |
+
+Unlike [file watching](/core-concepts/file-watching), there is **no** grace timer after the last WebSocket client leaves.
+
+## Auto-sleep interaction
+
+An open or background persistent PTY **does not** keep the sandbox awake by itself.
+
+Idle auto-sleep (default **~60 seconds**) uses sandbox **`lastActivityAt`**, which is refreshed when API handlers run — for example PTY **connect** (WebSocket upgrade), create/list/delete session, `execute`, `buffer`, `resize`, `exec`, and filesystem calls. **Ongoing WebSocket traffic** (typing, shell output, keepalive pings) does **not** reset that timestamp.
+
+So after connect, if you only use the live terminal and make no further API calls, the sandbox can still auto-snapshot while the socket looks “active.” When that happens, the PTY session is lost with the VM.
+
+To keep a sandbox running through long interactive work:
+
+- Create with **`autoSleep: false`**, or
+- Periodically call an API that touches activity (for example a cheap `exec`), or
+- Rely on other REST traffic that already hits the sandbox
+
+See [Sandbox lifecycle](/core-concepts/lifecycle) for idle defaults and `autoSleep`.
+
 ## HTTP and WebSocket flow (overview)
 
 1. Create or resume a sandbox.
@@ -35,10 +74,16 @@ Prefer the SDK when possible; it sets **`X-API-Key`** and the default hosted API
 ## Next steps
 
 <CardGroup cols={2}>
+  <Card title="Interactive PTY example" icon="terminal" href="/examples/interactive-pty">
+    Ephemeral and persistent patterns in TypeScript and Python.
+  </Card>
+  <Card title="Sandbox lifecycle" icon="moon" href="/core-concepts/lifecycle">
+    Auto-sleep, activity tracking, and `autoSleep`.
+  </Card>
   <Card title="API Reference" icon="api" href="/sdks/overview#interactive-api-reference">
     OpenAPI PTY operations and WebSocket URLs.
   </Card>
-  <Card title="Code execution" icon="terminal" href="/core-concepts/code-execution">
+  <Card title="Code execution" icon="code" href="/core-concepts/code-execution">
     Non-interactive exec and interpreter usage.
   </Card>
 </CardGroup>

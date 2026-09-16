@@ -156,7 +156,8 @@ You inspect **`create_session`** response types in your installed **`voidrun`** 
 ## Practices you should follow
 
 - You **rate-limit** PTY sessions per user; interactive shells are expensive.
-- You **delete** persistent sessions when you abandon them so you do not leak TTY state.
+- You **delete** persistent sessions when you abandon them so you do not leak TTY state. Disconnect alone does **not** auto-close a persistent session.
+- An open PTY does **not** keep the sandbox awake: with **`autoSleep: true`**, idle auto-snapshot can still run after ~**60s** without API activity. Use **`autoSleep: false`** or periodic API calls for long interactive sessions. See [PTY lifecycle](/core-concepts/pty#auto-sleep-interaction) and [Sandbox lifecycle](/core-concepts/lifecycle).
 - You never paste **secrets** into transcripts you log.
 
 ## Related guides
